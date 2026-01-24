@@ -15,11 +15,11 @@ import { useEffect } from 'react'
 
 
 const App = () => {
-  const { getToken } = useAuth();
+  const { getToken } = useAuth()
 
   useEffect(() => {
     getToken().then((token) => console.log(token));
-  }, []);
+  }, [])
 
   return (
     <div>
