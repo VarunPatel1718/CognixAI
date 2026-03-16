@@ -1,18 +1,26 @@
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
-import { clerkMiddleware, requireAuth } from '@clerk/express'
+import { clerkMiddleware } from '@clerk/express'
 import aiRouter from "./routes/aiRoutes.js"
+import sql from './configs/db.js'
 
 const app = express()
-app.use(cors())
+
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}))
 app.use(express.json())
 app.use(clerkMiddleware())
 
+// PUBLIC routes
 app.get('/', (req, res) => res.send('Server is Live!'))
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'CognixAI server is running', timestamp: new Date() })
+})
 
-app.use(requireAuth())
-
+// PROTECTED routes
 app.use('/api/ai', aiRouter)
 
 const PORT = process.env.PORT || 3000;
