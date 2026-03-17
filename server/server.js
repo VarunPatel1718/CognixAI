@@ -4,8 +4,12 @@ import 'dotenv/config';
 import { clerkMiddleware } from '@clerk/express'
 import aiRouter from "./routes/aiRoutes.js"
 import sql from './configs/db.js'
+import connectCloudinary from './configs/Cloudinary.js';
+
 
 const app = express()
+
+await connectCloudinary()
 
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000'],
