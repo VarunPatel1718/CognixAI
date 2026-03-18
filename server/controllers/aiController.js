@@ -77,7 +77,7 @@ export const generateBlogTitle = async (req, res) => {
       },
       ],
       temperature: 0.7,
-      max_tokens: 100,
+      max_tokens: 500,
     });
 
     const content = response.choices[0].message.content
@@ -103,6 +103,63 @@ export const generateBlogTitle = async (req, res) => {
 
 }
 
+export const reviewResume = async (req, res) => {
+  try {
+    const { userId } = req.auth;
+    const { resumeText } = req.body;
+    const plan = req.plan;
+    const free_usage = req.free_usage;
+
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      })
+    }
+
+    const response = await AI.chat.completions.create({
+      model: "gemini-3-flash-preview",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert resume reviewer. Analyze the resume provided and give detailed feedback on:\n" +
+            "1. Overall impression\n" +
+            "2. Strengths\n" +
+            "3. Areas for improvement\n" +
+            "4. ATS compatibility\n" +
+            "5. Specific recommendations\n" +
+            "Be specific, constructive and professional.",
+        },
+        {
+          role: "user",
+          content: resumeText,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+
+    const content = response.choices[0].message.content;
+
+    await sql` INSERT INTO creations (user_id, prompt, content, type)
+    VALUES (${userId}, ${resumeText}, ${content}, 'resume-review')`;
+
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: {
+          free_usage: free_usage + 1,
+        },
+      });
+    }
+
+    res.json({ success: true, content });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+}
+
 export const generateImage = async (req, res) => {
   try {
     const { userId } = req.auth;
@@ -110,20 +167,20 @@ export const generateImage = async (req, res) => {
 
     const seed = Math.floor(Math.random() * 1000)
     const imageUrl = `https://picsum.photos/seed/${seed}/1024/1024`
-    
+
     const response = await axios.get(imageUrl, {
       responseType: 'arraybuffer',
       timeout: 30000
     })
-    
+
     const base64Image = `data:image/jpeg;base64,${Buffer.from(response.data).toString('base64')}`
     const { secure_url } = await cloudinary.uploader.upload(base64Image)
-    
+
     await sql`INSERT INTO creations (user_id, prompt, content, type, publish)
     VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})`;
-    
+
     res.json({ success: true, content: secure_url })
-    
+
   } catch (error) {
     console.log(error.message)
     res.json({ success: false, message: error.message })
