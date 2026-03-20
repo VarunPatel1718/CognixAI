@@ -124,13 +124,12 @@ export const reviewResume = async (req, res) => {
         {
           role: "system",
           content:
-            "You are an expert resume reviewer. Analyze the resume provided and give detailed feedback on:\n" +
-            "1. Overall impression\n" +
-            "2. Strengths\n" +
-            "3. Areas for improvement\n" +
-            "4. ATS compatibility\n" +
-            "5. Specific recommendations\n" +
-            "Be specific, constructive and professional.",
+            "You are an expert resume reviewer. Analyze the resume provided and respond ONLY in valid JSON format with these exact keys: \"strengths\", \"improvements\", \"keywords\", and \"ats_score\". Do not include any markdown code blocks, conversational text, or explanations outside of the JSON. The response must be a single JSON object.\n\n" +
+            "For the strengths field: List 3-5 key strengths from the resume\n\n" +
+            "For the improvements field: List 3-5 specific areas for improvement\n\n" +
+            "For the keywords field: List 5-10 relevant keywords for ATS systems\n\n" +
+            "For the ats_score field: Provide a score from 1-100 based on ATS compatibility\n\n" +
+            "Example format: {\"strengths\": \"Strong technical skills...\", \"improvements\": \"Add more metrics...\", \"keywords\": \"React, Node.js...\", \"ats_score\": 85}",
         },
         {
           role: "user",

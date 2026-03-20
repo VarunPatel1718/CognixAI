@@ -12,32 +12,32 @@ const Dashboard = () => {
   const [creations, setCreations] = useState([])
   const { getToken } = useAuth()
 
-  const getDashboardData = async () => {
-    try {
-      const token = await getToken()
-
-      const response = await fetch('http://localhost:3000/api/ai/get-user-creations', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setCreations(data.data)
-      } else {
-        console.log(data.message)
-      }
-    } catch (error) {
-      console.log(error)
-    }
-  }
-
   useEffect(() => {
+    const getDashboardData = async () => {
+      try {
+        const token = await getToken()
+
+        const response = await fetch('http://localhost:3000/api/ai/get-user-creations', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setCreations(data.data)
+        } else {
+          console.log(data.message)
+        }
+      } catch (error) {
+        console.log(error)
+      }
+    }
+
     getDashboardData()
-  }, [])
+  }, [getToken])
 
   return (
     <div className="h-full overflow-y-scroll p-6">
