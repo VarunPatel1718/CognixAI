@@ -3,6 +3,7 @@ import sql from "../configs/db.js";
 import { clerkClient } from "@clerk/express";
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
+import { Readable } from 'stream';
 
 
 const AI = new OpenAI({
@@ -181,6 +182,87 @@ export const generateImage = async (req, res) => {
 
     res.json({ success: true, content: secure_url })
 
+  } catch (error) {
+    console.log(error.message)
+    res.json({ success: false, message: error.message })
+  }
+}
+
+export const removeBackground = async (req, res) => {
+  try {
+    const { userId } = req.auth;
+    const { imageBase64 } = req.body;
+    const plan = req.plan;
+    const free_usage = req.free_usage;
+
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      });
+    }
+
+    if (!imageBase64) {
+      return res.status(400).json({
+        success: false,
+        message: "Image is required."
+      });
+    }
+
+    const FormData = (await import('form-data')).default;
+    const formData = new FormData();
+    formData.append('image_file_b64', imageBase64);
+    formData.append('size', 'preview');
+
+    console.log("API Key exists:", !!process.env.REMOVEBG_API_KEY);
+    console.log("API Key first 5 chars:", process.env.REMOVEBG_API_KEY?.substring(0, 5));
+
+    const response = await axios.post(
+      'https://api.remove.bg/v1.0/removebg',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          'X-Api-Key': process.env.REMOVEBG_API_KEY,
+        },
+        responseType: 'arraybuffer',
+      }
+    )
+
+    console.log('Response status:', response.status)
+    console.log('Response headers:', response.headers['content-type'])
+
+    const base64Result = Buffer.from(response.data).toString('base64')
+    const contentType = response.headers['content-type'] || 'image/png'
+    const imageDataUrl = `data:${contentType};base64,${base64Result}`
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: {
+          free_usage: free_usage + 1,
+        },
+      });
+    }
+    res.json({ success: true, content: imageDataUrl })
+  } catch (error) {
+    console.log(error.message);
+    console.log("Remove.bg error status:", error.response?.status);
+    console.log("Remove.bg error data:", error.response?.data?.toString());
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const getUserCreations = async (req, res) => {
+  try {
+    const { userId } = req.auth;
+
+    const rows = await sql`
+      SELECT * FROM creations
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT 10
+    `;
+
+    res.json({ success: true, data: rows })
   } catch (error) {
     console.log(error.message)
     res.json({ success: false, message: error.message })

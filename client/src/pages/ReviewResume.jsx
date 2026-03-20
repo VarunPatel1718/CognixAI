@@ -2,8 +2,9 @@ import { FileText, Sparkles, Loader2 } from 'lucide-react';
 import React, { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import * as pdfjsLib from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.5.207/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 
 const ReviewResume = () => {
@@ -11,8 +12,56 @@ const ReviewResume = () => {
   const [loading, setLoading] = useState(false)
   const [content, setContent] = useState('')
   const [error, setError] = useState('')
+  const [pdfText, setPdfText] = useState('')
+  const [processingFile, setProcessingFile] = useState(false)
 
   const { getToken } = useAuth()
+
+  const handleFileUpload = async (file) => {
+    if (!file) {
+      setError('Please select a PDF file.')
+      return
+    }
+
+    if (file.type !== 'application/pdf') {
+      setError('Please upload a PDF file only.')
+      return
+    }
+
+    setProcessingFile(true)
+    setError('')
+    setPdfText('')
+
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+      let extractedText = ''
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum)
+        const textContent = await page.getTextContent()
+        const pageText = textContent.items.map((item) => item.str).join(' ')
+        extractedText += pageText + '\n\n'
+      }
+
+      const finalText = `File name: ${file.name}\n\n${extractedText}`
+      setPdfText(finalText)
+      setInput(file)
+    } catch (err) {
+      console.error(err)
+      if (err.name === 'PasswordException') {
+        setError('This PDF is password protected. Please upload an unprotected PDF.')
+      } else if (err.name === 'InvalidPDFException') {
+        setError('Invalid PDF file. Please upload a valid PDF document.')
+      } else {
+        setError('Failed to process PDF. Please try again with a different file.')
+      }
+      setPdfText('')
+      setInput(null)
+    } finally {
+      setProcessingFile(false)
+    }
+  }
 
   const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -79,11 +128,19 @@ const ReviewResume = () => {
         </div>
         <p className="mt-6 text-sm font-medium">Upload Resume</p>
 
-        <input onChange={(e) => setInput(e.target.files[0] || null)}
+        <input onChange={(e) => handleFileUpload(e.target.files[0] || null)}
           type="file" accept='application/pdf'
           className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600"
           required
         />
+        
+        {/* File processing loading state */}
+        {processingFile && (
+          <div className='flex items-center gap-2 mt-2 text-sm text-gray-600'>
+            <Loader2 className='w-4 h-4 animate-spin text-[#00DA83]' />
+            <span>Processing PDF...</span>
+          </div>
+        )}
         <p className='text-xs text-gray-500 font-light mt-1'>
           Supports PDF resume only.
         </p>

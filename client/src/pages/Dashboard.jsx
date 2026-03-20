@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { dummyCreationData } from '../assets/assets'
 import { Sparkles } from 'lucide-react'
 import { Gem } from 'lucide-react'
-import { Protect } from '@clerk/clerk-react'
+import { Protect, useAuth } from '@clerk/clerk-react'
 import CreationItem from '../components/CreationItem'
 
 
@@ -11,9 +10,29 @@ import CreationItem from '../components/CreationItem'
 const Dashboard = () => {
 
   const [creations, setCreations] = useState([])
+  const { getToken } = useAuth()
 
   const getDashboardData = async () => {
-    setCreations(dummyCreationData)
+    try {
+      const token = await getToken()
+
+      const response = await fetch('http://localhost:3000/api/ai/get-user-creations', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setCreations(data.data)
+      } else {
+        console.log(data.message)
+      }
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   useEffect(() => {
