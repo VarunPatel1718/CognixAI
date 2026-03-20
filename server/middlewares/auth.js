@@ -3,7 +3,7 @@ import { clerkClient } from "@clerk/express";
 // Middleware to check userId and hasPremiumPlan
 export const auth = async (req, res, next) => {
   try {
-    const authState = req.auth;
+    const authState = req.auth();
     const userId = authState?.userId;
 
     if (!userId) {

@@ -5,14 +5,22 @@ import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
 import { Readable } from 'stream';
 
+// Configure Cloudinary V2 immediately after import
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const AI = new OpenAI({
   apiKey: process.env.GEMINI_API_KEY,
   baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
 });
+
 export const generateArticle = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
     const { prompt, length } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
@@ -59,7 +67,8 @@ export const generateArticle = async (req, res) => {
 
 export const generateBlogTitle = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
     const { prompt } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
@@ -106,7 +115,8 @@ export const generateBlogTitle = async (req, res) => {
 
 export const reviewResume = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
     const { resumeText } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
@@ -162,34 +172,158 @@ export const reviewResume = async (req, res) => {
 
 export const generateImage = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
     const { prompt, publish } = req.body;
+    const plan = req.plan;
+    const free_usage = req.free_usage;
 
-    const seed = Math.floor(Math.random() * 1000)
-    const imageUrl = `https://picsum.photos/seed/${seed}/1024/1024`
+    console.log('=== IMAGE GENERATION DEBUG ===');
+    console.log('Request Body:', { prompt, publish, userId, plan });
+    console.log('Auth Object:', auth);
 
-    const response = await axios.get(imageUrl, {
-      responseType: 'arraybuffer',
-      timeout: 30000
-    })
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      });
+    }
 
-    const base64Image = `data:image/jpeg;base64,${Buffer.from(response.data).toString('base64')}`
-    const { secure_url } = await cloudinary.uploader.upload(base64Image)
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        message: "Prompt is required."
+      });
+    }
 
+    // Check if Stability API key exists
+    if (!process.env.STABILITY_API_KEY) {
+      console.error('❌ STABILITY_API_KEY is missing from environment');
+      return res.status(500).json({
+        success: false,
+        message: "Server configuration error: API key missing."
+      });
+    }
+
+    console.log('✅ API Key exists:', !!process.env.STABILITY_API_KEY);
+    console.log('✅ API Key first 10 chars:', process.env.STABILITY_API_KEY?.substring(0, 10));
+    console.log('✅ API Key length:', process.env.STABILITY_API_KEY?.length);
+
+    // Call Stability AI API
+    console.log('🚀 Calling Stability AI API...');
+    
+    const response = await axios.post(
+      'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
+      {
+        text_prompts: [{ text: prompt }],
+        cfg_scale: 7,
+        height: 1024,
+        width: 1024,
+        samples: 1,
+        steps: 30
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.STABILITY_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+
+    console.log('✅ Stability AI Response Status:', response.status);
+    console.log('✅ Stability AI Response Headers:', response.headers);
+
+    if (response.status !== 200) {
+      console.error('❌ Non-200 response from Stability AI:', response.data);
+      return res.status(response.status).json({
+        success: false,
+        message: `Stability AI error: ${response.data?.message || 'Unknown error'}`
+      });
+    }
+
+    console.log('✅ Stability AI Response Data:', response.data);
+
+    if (!response.data || !response.data.artifacts || response.data.artifacts.length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate image: No artifacts in response."
+      });
+    }
+
+    // Get base64 image from response and format correctly
+    const base64Data = 'data:image/png;base64,' + response.data.artifacts[0].base64;
+    
+    console.log('📤 Uploading to Cloudinary...');
+    console.log('✅ Cloudinary Config Check:', {
+      cloud_name: !!process.env.CLOUDINARY_CLOUD_NAME,
+      cloud_name_value: process.env.CLOUDINARY_CLOUD_NAME?.substring(0, 10) + '...',
+      api_key: !!process.env.CLOUDINARY_API_KEY,
+      api_key_value: process.env.CLOUDINARY_API_KEY?.substring(0, 10) + '...',
+      api_secret: !!process.env.CLOUDINARY_API_SECRET,
+      api_secret_value: process.env.CLOUDINARY_API_SECRET?.substring(0, 10) + '...'
+    });
+
+    // Upload to Cloudinary with enhanced error handling
+    let secure_url;
+    try {
+      // Use unsigned upload strategy with custom preset
+      const upload = await cloudinary.uploader.upload(base64Data, { 
+        unsigned: true,
+        upload_preset: 'qco39ytg'
+      });
+      secure_url = upload.secure_url;
+      console.log('SUCCESS: Image uploaded to Cloudinary:', upload.secure_url);
+    } catch (cloudinaryError) {
+      console.error('❌ Cloudinary Error:', cloudinaryError.message);
+      console.error('❌ Cloudinary HTTP Code:', cloudinaryError.http_code);
+      console.error('❌ Full Cloudinary Error Details:', cloudinaryError);
+      return res.status(500).json({
+        success: false,
+        message: `Cloudinary upload failed: ${cloudinaryError.message}`
+      });
+    }
+
+    // Save to database
     await sql`INSERT INTO creations (user_id, prompt, content, type, publish)
     VALUES (${userId}, ${prompt}, ${secure_url}, 'image', ${publish ?? false})`;
 
-    res.json({ success: true, content: secure_url })
+    // Update usage for free users
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: {
+          free_usage: free_usage + 1,
+        },
+      });
+    }
+
+    console.log('✅ Image generation completed successfully');
+    res.json({ success: true, content: secure_url });
 
   } catch (error) {
-    console.log(error.message)
-    res.json({ success: false, message: error.message })
+    console.error('❌ Backend Error:', error.message);
+    console.error('❌ Error Status:', error.response?.status);
+    console.error('❌ Error Data:', error.response?.data);
+    console.error('❌ Full Error:', error);
+    console.error('Stability AI Error Details:', error.response?.data);
+    
+    // Handle specific 403 errors
+    if (error.response?.status === 403) {
+      return res.status(403).json({
+        success: false,
+        message: "API authentication failed. Check your Stability AI API key and credits."
+      });
+    }
+    
+    res.json({ success: false, message: error.message });
   }
-}
+};
 
 export const removeBackground = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
     const { imageBase64 } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
@@ -250,9 +384,209 @@ export const removeBackground = async (req, res) => {
   }
 };
 
+export const removeObject = async (req, res) => {
+  try {
+    const auth = req.auth();
+    const { userId } = auth;
+    const { imageBase64, objectName } = req.body;
+    const plan = req.plan;
+    const free_usage = req.free_usage;
+
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      });
+    }
+
+    if (!imageBase64 || !objectName) {
+      return res.status(400).json({
+        success: false,
+        message: "Image and object name are required."
+      });
+    }
+
+    // Extract base64 data
+    const base64Data = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64
+    const imageBuffer = Buffer.from(base64Data, 'base64')
+
+    // Use Hugging Face Inference API for object removal
+    const response = await axios.post(
+      'https://api-inference.huggingface.co/models/briaai/RMBG-1.4',
+      imageBuffer,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
+          'Content-Type': 'image/jpeg',
+        },
+        responseType: 'arraybuffer',
+        timeout: 60000
+      }
+    )
+
+    const resultBase64 = Buffer.from(response.data).toString('base64')
+    const imageDataUrl = `data:image/png;base64,${resultBase64}` 
+
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
+    }
+
+    res.json({ success: true, content: imageDataUrl })
+
+  } catch (error) {
+    console.log(error.message)
+    res.json({ success: false, message: error.message })
+  }
+}
+
+export const getPublishedCreations = async (req, res) => {
+  try {
+    console.log('=== DATABASE CONNECTION TEST ===');
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    console.log('DATABASE_URL format:', process.env.DATABASE_URL?.substring(0, 20) + '...');
+    
+    // Test database connection
+    const testResult = await sql`SELECT 1 as test`;
+    console.log('Database connection test:', testResult);
+    
+    const rows = await sql`
+      SELECT * FROM creations 
+      WHERE publish = true 
+      ORDER BY created_at DESC 
+      LIMIT 20
+    `;
+    console.log('✅ Published creations fetched:', rows.length);
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.log('❌ DATABASE ERROR:', error);
+    console.log('❌ ERROR DETAILS:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const toggleLike = async (req, res) => {
+  try {
+    console.log('=== TOGGLE LIKE DEBUG ===');
+    
+    const auth = req.auth();
+    console.log('Auth object:', auth);
+    const { userId } = auth;
+    console.log('Extracted userId:', userId);
+    
+    const { creationId } = req.body;
+    console.log('Request body creationId:', creationId);
+
+    if (!userId || !creationId) {
+      console.log('❌ Missing userId or creationId');
+      return res.status(400).json({
+        success: false,
+        message: "User ID and creation ID are required."
+      });
+    }
+
+    console.log('✅ Auth validation passed');
+
+    // Get current creation with likes
+    console.log('🔍 Querying database for creation...');
+    const [creation] = await sql`
+      SELECT likes FROM creations 
+      WHERE id = ${creationId}
+    `;
+    console.log('Database result:', creation);
+
+    if (!creation) {
+      console.log('❌ Creation not found');
+      return res.status(404).json({
+        success: false,
+        message: "Creation not found."
+      });
+    }
+
+    console.log('✅ Creation found, current likes:', creation.likes);
+
+    // Parse current likes array
+    let currentLikes = [];
+    try {
+      currentLikes = typeof creation.likes === 'string' 
+        ? JSON.parse(creation.likes) 
+        : (creation.likes || []);
+      console.log('✅ Parsed likes array:', currentLikes);
+    } catch (parseError) {
+      console.log('❌ Error parsing likes:', parseError);
+      currentLikes = [];
+    }
+
+    // Toggle like using PostgreSQL array functions
+    let newLikes;
+    if (currentLikes.includes(userId)) {
+      // Unlike - remove user ID from likes using array_remove
+      newLikes = await sql`
+        SELECT array_remove(likes, ${userId}) as new_likes
+        FROM (
+          SELECT COALESCE(likes, '{}') as likes 
+          FROM creations 
+          WHERE id = ${creationId}
+        ) subquery
+      `;
+      newLikes = newLikes[0].new_likes;
+      console.log('👎 Unliking - removing user from likes');
+    } else {
+      // Like - add user ID to likes using array_append
+      newLikes = await sql`
+        SELECT array_append(likes, ${userId}) as new_likes
+        FROM (
+          SELECT COALESCE(likes, '{}') as likes 
+          FROM creations 
+          WHERE id = ${creationId}
+        ) subquery
+      `;
+      newLikes = newLikes[0].new_likes;
+      console.log('👍 Liking - adding user to likes');
+    }
+
+    console.log('📝 New likes array:', newLikes);
+
+    // Update database with proper PostgreSQL array
+    console.log('💾 Updating database...');
+    await sql`
+      UPDATE creations 
+      SET likes = ${newLikes} 
+      WHERE id = ${creationId}
+    `;
+    console.log('✅ Database updated successfully');
+
+    res.json({ 
+      success: true, 
+      likes: newLikes 
+    });
+
+  } catch (error) {
+    console.log('❌ TOGGLE LIKE ERROR:', error);
+    console.log('❌ ERROR DETAILS:', {
+      message: error.message,
+      code: error.code,
+      severity: error.severity,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export const getUserCreations = async (req, res) => {
   try {
-    const { userId } = req.auth;
+    const auth = req.auth();
+    const { userId } = auth;
 
     const rows = await sql`
       SELECT * FROM creations
