@@ -40,10 +40,10 @@
 - 🔐 **User Authentication** — Secure sign-in/sign-up via Clerk
 - 📝 **Article Generator** — Generate full articles using AI
 - 💡 **Blog Title Generator** — Create creative titles in seconds
-- 🖼️ **Image Generator** — AI-powered image generation (premium-gated in this build)
-- 🧼 **Background Remover** — Remove image backgrounds using AI
+- 🖼️ **Image Generator** — AI-powered image generation using Stability AI SDXL model
+- 🧼 **Background Remover** — Remove image backgrounds using Remove.bg API (50 free credits/month)
 - 🧩 **Object Remover** — Remove objects from images using AI
-- 📄 **Resume Analyzer** — Upload a PDF resume and get expert feedback
+- 📄 **Resume Analyzer** — Upload a PDF resume and get expert feedback using Gemini AI
 - 👥 **Community** — Share and explore AI creations
 - 💳 **Subscription Plans** — Free and Premium tiers via Clerk Billing
 
@@ -51,15 +51,15 @@
 
 ## 🧰 Tech Stack
 
-| Category | Technology | What it does |
-|---|---|---|
-| Database | **Neon (Serverless PostgreSQL)** | Stores user creations and metadata |
-| Backend | **Express.js** + **Node.js** | REST API endpoints + business logic |
-| Frontend | **React (Vite)** | UI + client-side rendering |
-| Auth | **Clerk** | Authentication, session handling, billing/tier logic |
-| AI | **Google Gemini API** | Generate articles, titles, and resume reviews |
-| Media | **Cloudinary** | Uploads + transforms images |
-| Deployment | **Vercel (frontend)** + **Render (backend)** | Production hosting |
+| Category   | Technology                                   | What it does                                         |
+| ---------- | -------------------------------------------- | ---------------------------------------------------- |
+| Database   | **Neon (Serverless PostgreSQL)**             | Stores user creations and metadata                   |
+| Backend    | **Express.js** + **Node.js**                 | REST API endpoints + business logic                  |
+| Frontend   | **React (Vite)**                             | UI + client-side rendering                           |
+| Auth       | **Clerk**                                    | Authentication, session handling, billing/tier logic |
+| AI         | **Google Gemini API**                        | Generate articles, titles, and resume reviews        |
+| Media      | **Cloudinary**                               | Uploads + transforms images                          |
+| Deployment | **Vercel (frontend)** + **Render (backend)** | Production hosting                                   |
 
 ---
 
@@ -128,8 +128,9 @@ DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require&channel_
 CLERK_PUBLISHABLE_KEY=pk_...
 CLERK_SECRET_KEY=sk_...
 GEMINI_API_KEY=AIza...
-
-CLIPDROP_API_KEY=...              # optional (if still used by other routes)
+REMOVEBG_API_KEY=...
+STABILITY_API_KEY=...
+HUGGINGFACE_API_KEY=...
 
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
@@ -168,17 +169,22 @@ npm run dev
 
 ---
 
-## 🔌 API Endpoints
+## 🌌 API Endpoints
 
 Base URL: `http://localhost:3000`
 
-| Method | Endpoint | Auth | Body | Success Response |
-|---|---|---|---|---|
-| GET | `/api/health` | Public | — | `{ status, message, timestamp }` |
-| POST | `/api/ai/generate-article` | Clerk | `{ prompt: string, length: number }` | `{ success: true, content: string }` |
-| POST | `/api/ai/generate-blog-title` | Clerk | `{ prompt: string }` | `{ success: true, content: string }` |
-| POST | `/api/ai/generate-image` | Clerk | `{ prompt: string, publish?: boolean }` | `{ success: true, content: string }` |
-| POST | `/api/ai/review-resume` | Clerk | `{ resumeText: string }` | `{ success: true, content: string }` |
+| Method | Endpoint                          | Auth   | Body                                          | Success Response                     |
+| ------ | --------------------------------- | ------ | --------------------------------------------- | ------------------------------------ |
+| GET    | `/api/health`                     | Public | —                                             | `{ status, message, timestamp }`     |
+| POST   | `/api/ai/generate-article`        | Clerk  | `{ prompt: string, length: number }`          | `{ success: true, content: string }` |
+| POST   | `/api/ai/generate-blog-title`     | Clerk  | `{ prompt: string }`                          | `{ success: true, content: string }` |
+| POST   | `/api/ai/generate-image`          | Clerk  | `{ prompt: string, publish?: boolean }`       | `{ success: true, content: string }` |
+| POST   | `/api/ai/remove-background`       | Clerk  | `{ imageBase64: string }`                     | `{ success: true, content: string }` |
+| POST   | `/api/ai/remove-object`           | Clerk  | `{ imageBase64: string, objectName: string }` | `{ success: true, content: string }` |
+| POST   | `/api/ai/review-resume`           | Clerk  | `{ resumeText: string }`                      | `{ success: true, content: string }` |
+| GET    | `/api/ai/get-user-creations`      | Clerk  | —                                             | `{ success: true, data: array }`     |
+| GET    | `/api/ai/get-published-creations` | Public | —                                             | `{ success: true, data: array }`     |
+| POST   | `/api/ai/toggle-like`             | Clerk  | `{ creationId: string }`                      | `{ success: true, likes: array }`    |
 
 ### Required Auth Header
 
@@ -199,7 +205,7 @@ Base URL: `http://localhost:3000`
 
 ## 🌐 Live Demo
 
-[Live demo link (placeholder)](https://example.com)
+🔗 **Coming Soon - Deploying on Vercel + Render**
 
 ---
 
