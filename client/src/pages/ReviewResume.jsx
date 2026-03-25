@@ -1,433 +1,304 @@
-import { FileText, Sparkles, Loader2, Download, TrendingUp, AlertCircle, Target } from 'lucide-react';
-import React, { useState } from 'react'
+import { FileText, Sparkles, Loader2, Download, TrendingUp, AlertCircle, Target } from 'lucide-react'
+import { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import ReactMarkdown from 'react-markdown'
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl
 
 const ReviewResume = () => {
-  const [error, setError] = useState('')
+  const { getToken } = useAuth()
   const [pdfText, setPdfText] = useState('')
+  const [jobDescription, setJobDescription] = useState('')
   const [processingFile, setProcessingFile] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState({
-    strengths: '',
-    improvements: '',
-    keywords: '',
-    ats_score: null
-  })
-  const [atsScore, setAtsScore] = useState(null)
+  const [error, setError] = useState('')
+  const [analysisResult, setAnalysisResult] = useState(null)
   const [activeTab, setActiveTab] = useState('strengths')
 
-  const { getToken } = useAuth()
-
-  // Helper function to convert error messages to user-friendly messages
   const getErrorMessage = (error) => {
-    const errorString = error.toString().toLowerCase()
-    
-    if (errorString.includes('429')) {
-      return "Service is temporarily busy. Please try again in a few seconds."
-    } else if (errorString.includes('403')) {
-      return "API configuration error. Please contact support."
-    } else if (errorString.includes('401')) {
-      return "Authentication error. Please sign in again."
-    } else if (errorString.includes('500')) {
-      return "Server error. Please try again later."
-    } else if (errorString.includes('limit reached')) {
-      return "Usage limit reached. Please upgrade to continue."
-    } else if (errorString.includes('network') || errorString.includes('fetch')) {
-      return "Network error. Please check your connection and try again."
-    } else {
-      return "Something went wrong. Please try again."
-    }
+    const msg = error.toString().toLowerCase()
+    if (msg.includes('429')) return 'Service is temporarily busy. Please try again in a few seconds.'
+    if (msg.includes('403')) return 'API configuration error. Please contact support.'
+    if (msg.includes('401')) return 'Authentication error. Please sign in again.'
+    if (msg.includes('500')) return 'Server error. Please try again later.'
+    if (msg.includes('network') || msg.includes('fetch')) return 'Network error. Please check your connection.'
+    return 'Something went wrong. Please try again.'
   }
 
   const handleFileUpload = async (file) => {
-    if (!file) {
-      setError('Please select a PDF file.')
-      return
-    }
-
+    if (!file) return
     if (file.type !== 'application/pdf') {
       setError('Please upload a PDF file only.')
       return
     }
-
     setProcessingFile(true)
     setError('')
     setPdfText('')
-
     try {
       const arrayBuffer = await file.arrayBuffer()
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-
       let extractedText = ''
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum)
         const textContent = await page.getTextContent()
-        const pageText = textContent.items.map((item) => item.str).join(' ')
-        extractedText += pageText + '\n\n'
+        extractedText += textContent.items.map(item => item.str).join(' ') + '\n\n'
       }
-
-      // Clean up text to remove weird symbols and encoding issues
       let cleanedText = extractedText
-        .replace(/[\u2018\u2019]/g, "'") // Normalize quotes
-        .replace(/[\u201C\u201D]/g, '"') // Normalize double quotes
-        .replace(/[\u2013\u2014]/g, '-') // Normalize dashes
-        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\s+/g, ' ')
         .trim()
-      
-      // Remove control characters using string filtering
-      cleanedText = cleanedText.split('').filter(char => 
-        char.charCodeAt(0) >= 32 && char.charCodeAt(0) <= 126 || 
-        char.charCodeAt(0) > 127
-      ).join('')
-
-      const finalText = `File name: ${file.name}\n\n${cleanedText}`
-      setPdfText(finalText)
+      setPdfText(`File name: ${file.name}\n\n${cleanedText}`)
     } catch (err) {
-      console.error(err)
-      if (err.name === 'PasswordException') {
-        setError('This PDF is password protected. Please upload an unprotected PDF.')
-      } else if (err.name === 'InvalidPDFException') {
-        setError('Invalid PDF file. Please upload a valid PDF document.')
-      } else {
-        setError('Failed to process PDF. Please try again with a different file.')
-      }
-      setPdfText('')
+      if (err.name === 'PasswordException') setError('This PDF is password protected.')
+      else if (err.name === 'InvalidPDFException') setError('Invalid PDF file.')
+      else setError('Failed to process PDF. Please try again.')
     } finally {
       setProcessingFile(false)
     }
   }
 
   const analyzeResume = async () => {
-    if (!pdfText) {
-      setError('No PDF text to analyze. Please upload a PDF first.')
-      return
-    }
-
+    if (!pdfText) return
     setAnalyzing(true)
     setError('')
-    setAnalysisResult({
-      strengths: '',
-      improvements: '',
-      keywords: '',
-      ats_score: null
-    })
-
+    setAnalysisResult(null)
     try {
       const token = await getToken()
-
       const response = await fetch('http://localhost:3000/api/ai/review-resume', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          resumeText: pdfText
-        })
+        body: JSON.stringify({ resumeText: pdfText, jobDescription })
       })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
-
       if (data.success) {
-        // Handle the new structured response format
-        if (typeof data.content === 'object') {
-          // New format: structured object with separate fields
-          setAnalysisResult({
-            strengths: data.content.strengths || '',
-            improvements: data.content.areasForImprovement || '',
-            keywords: data.content.keywordSuggestions || '',
-            ats_score: null
-          });
-          
-          // Try to extract ATS score from the text content
-          const allText = `${data.content.strengths || ''} ${data.content.areasForImprovement || ''} ${data.content.keywordSuggestions || ''}`;
-          const scoreMatch = allText.match(/(\d+)\/100|score[:\s]*(\d+)/i);
-          if (scoreMatch) {
-            const score = parseInt(scoreMatch[1] || scoreMatch[2]);
-            setAtsScore(score);
-          }
-        } else {
-          // Fallback for old format or string content
-          try {
-            const parsedContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-            setAnalysisResult({
-              strengths: parsedContent.strengths || '',
-              improvements: parsedContent.areasForImprovement || parsedContent.improvements || '',
-              keywords: parsedContent.keywordSuggestions || parsedContent.keywords || '',
-              ats_score: parsedContent.ats_score || null
-            });
-            
-            if (parsedContent.ats_score !== null) {
-              setAtsScore(parsedContent.ats_score);
-            }
-          } catch (parseError) {
-            console.error('Failed to parse response:', parseError);
-            setError('Failed to parse AI response. Please try again.');
-          }
-        }
+        const c = data.content
+        setAnalysisResult({
+          strengths: c.strengths || '',
+          areasForImprovement: c.areasForImprovement || '',
+          keywordSuggestions: c.keywordSuggestions || '',
+          atsScore: c.atsScore ?? null,
+          atsBreakdown: c.atsBreakdown || '',
+          rewriteSuggestions: c.rewriteSuggestions || '',
+          jobMatchScore: c.jobMatchScore ?? null,
+          jobMatchAnalysis: c.jobMatchAnalysis || ''
+        })
+        setActiveTab('strengths')
       } else {
-        setError(getErrorMessage(data.message || 'Unknown error'))
+        setError(getErrorMessage(data.message || ''))
       }
     } catch (err) {
-      console.error(err)
-      setError(getErrorMessage(err.message || 'Unknown error'))
+      setError(getErrorMessage(err.message || ''))
     } finally {
       setAnalyzing(false)
     }
   }
 
+  const getScoreStyle = (score) => {
+    if (score >= 71) return { bg: 'from-green-500 to-green-600', text: 'text-green-600', label: 'Excellent' }
+    if (score >= 41) return { bg: 'from-yellow-500 to-orange-500', text: 'text-orange-600', label: 'Average' }
+    return { bg: 'from-red-500 to-red-600', text: 'text-red-600', label: 'Needs Work' }
+  }
+
   const downloadAsPDF = () => {
-    // Create a temporary div with analysis content
-    const element = document.createElement('div')
-    element.innerHTML = `
-      <div style="padding: 20px; font-family: Arial, sans-serif;">
-        <h1 style="color: #00DA83; margin-bottom: 20px;">Resume Analysis Report</h1>
-        ${atsScore !== null ? `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
-          <h2 style="margin: 0; font-size: 24px;">ATS Score: ${atsScore}/100</h2>
-        </div>` : ''}
-        ${analysisResult.strengths ? `
-        <div style="margin-bottom: 20px;">
-          <h3 style="color: #16a34a; margin-bottom: 10px;">Strengths</h3>
-          <div style="white-space: pre-wrap; line-height: 1.6;">${analysisResult.strengths}</div>
-        </div>` : ''}
-        ${analysisResult.improvements ? `
-        <div style="margin-bottom: 20px;">
-          <h3 style="color: #ea580c; margin-bottom: 10px;">Areas for Improvement</h3>
-          <div style="white-space: pre-wrap; line-height: 1.6;">${analysisResult.improvements}</div>
-        </div>` : ''}
-        ${analysisResult.keywords ? `
-        <div style="margin-bottom: 20px;">
-          <h3 style="color: #2563eb; margin-bottom: 10px;">Keyword Suggestions</h3>
-          <div style="white-space: pre-wrap; line-height: 1.6;">${analysisResult.keywords}</div>
-        </div>` : ''}
-      </div>
-    `
-    
-    // Use browser's print functionality to save as PDF
     const printWindow = window.open('', '_blank')
     printWindow.document.write(`
-      <html>
-        <head>
-          <title>Resume Analysis Report</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            h1 { color: #00DA83; }
-            .score-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center; }
-          </style>
-        </head>
-        <body>${element.innerHTML}</body>
+      <html><head><title>Resume Analysis</title>
+      <style>body{font-family:Arial,sans-serif;padding:20px;} h1{color:#00DA83;} h3{color:#333;} </style>
+      </head><body>
+      <h1>Resume Analysis Report</h1>
+      ${analysisResult?.atsScore != null ? `<h2>ATS Score: ${analysisResult.atsScore}/100</h2>` : ''}
+      ${analysisResult?.strengths ? `<h3>Strengths</h3><p>${analysisResult.strengths}</p>` : ''}
+      ${analysisResult?.areasForImprovement ? `<h3>Areas for Improvement</h3><p>${analysisResult.areasForImprovement}</p>` : ''}
+      ${analysisResult?.keywordSuggestions ? `<h3>Keyword Suggestions</h3><p>${analysisResult.keywordSuggestions}</p>` : ''}
+      ${analysisResult?.rewriteSuggestions ? `<h3>Rewrite Suggestions</h3><p>${analysisResult.rewriteSuggestions}</p>` : ''}
+      ${analysisResult?.jobMatchAnalysis ? `<h3>Job Match Analysis</h3><p>${analysisResult.jobMatchAnalysis}</p>` : ''}
+      </body></html>
     `)
     printWindow.document.close()
     printWindow.print()
   }
 
+  const tabs = [
+    { id: 'strengths', label: '💪 Strengths' },
+    { id: 'areasForImprovement', label: '⚠️ Areas to Improve' },
+    { id: 'keywordSuggestions', label: '🔑 Keywords' },
+    { id: 'rewriteSuggestions', label: '✏️ Rewrites' },
+    { id: 'atsBreakdown', label: '🤖 ATS Breakdown' },
+    ...(analysisResult?.jobMatchScore != null ? [{ id: 'jobMatch', label: '🎯 Job Match' }] : [])
+  ]
+
+  const tabContent = {
+    strengths: analysisResult?.strengths,
+    areasForImprovement: analysisResult?.areasForImprovement,
+    keywordSuggestions: analysisResult?.keywordSuggestions,
+    rewriteSuggestions: analysisResult?.rewriteSuggestions,
+    atsBreakdown: analysisResult?.atsBreakdown,
+    jobMatch: analysisResult?.jobMatchAnalysis
+  }
+
   return (
-    <div className="h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700">
+    <div className='h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700'>
 
-      {/* left col */}
-      <div className="w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200">
-        <div className="flex items-center gap-3">
-          <Sparkles className="w-6 text-[#00DA83]" />
-          <h1 className="text-xl font-semibold">Resume Review</h1>
+      {/* Left Panel */}
+      <div className='w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200'>
+        <div className='flex items-center gap-3'>
+          <Sparkles className='w-6 text-[#00DA83]' />
+          <h1 className='text-xl font-semibold'>Resume Review</h1>
         </div>
-        <p className="mt-6 text-sm font-medium">Upload Resume</p>
 
-        <input onChange={(e) => handleFileUpload(e.target.files[0] || null)}
-          type="file" accept='application/pdf'
-          className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600"
-          required
+        <p className='mt-6 text-sm font-medium'>Upload Resume</p>
+        <input
+          onChange={(e) => handleFileUpload(e.target.files[0] || null)}
+          type='file'
+          accept='application/pdf'
+          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600'
         />
-        
-        {/* File processing loading state */}
         {processingFile && (
           <div className='flex items-center gap-2 mt-2 text-sm text-gray-600'>
             <Loader2 className='w-4 h-4 animate-spin text-[#00DA83]' />
             <span>Processing PDF...</span>
           </div>
         )}
-        <p className='text-xs text-gray-500 font-light mt-1'>
-          Supports PDF resume only.
+        <p className='text-xs text-gray-500 font-light mt-1'>Supports PDF resume only.</p>
+
+        <p className='mt-4 text-sm font-medium'>
+          Job Description <span className='text-gray-400 font-normal'>(Optional)</span>
         </p>
-        
-        {/* Analyze Button */}
+        <textarea
+          value={jobDescription}
+          onChange={(e) => setJobDescription(e.target.value)}
+          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600'
+          rows={4}
+          placeholder='Paste job description here for a Job Match score...'
+        />
+
         {pdfText && !processingFile && (
-          <button 
-            type="button"
+          <button
             onClick={analyzeResume}
-            className='w-full flex justify-center items-center gap-2
-            bg-gradient-to-r from-[#009BB3] to-[#00DA83] text-white px-4 py-2 mt-4
-text-sm rounded-lg cursor-pointer hover:opacity-90 transition-opacity'
+            disabled={analyzing}
+            className='w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#009BB3] to-[#00DA83] text-white px-4 py-2 mt-4 text-sm rounded-lg cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50'
           >
             <Sparkles className='w-5' />
-            Analyze Resume
+            {analyzing ? 'Analyzing...' : 'Analyze Resume'}
           </button>
         )}
-        
 
-
+        {error && (
+          <div className='mt-4 p-3 bg-red-50 border border-red-200 rounded-lg'>
+            <div className='flex items-center gap-2'>
+              <AlertCircle className='w-4 h-4 text-red-600' />
+              <p className='text-sm text-red-600'>{error}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Analysis Results Section */}
-      <div className='w-full max-w-2xl p-6 bg-white rounded-lg flex flex-col border
-border-gray-200 min-h-[600px]'>
+      {/* Right Panel */}
+      <div className='w-full max-w-2xl p-6 bg-white rounded-lg flex flex-col border border-gray-200 min-h-[600px]'>
 
-        {/* ATS Score Badge */}
-        {atsScore !== null && (
-          <div className='flex justify-center mb-6'>
-            <div className='relative'>
-              <div className='w-32 h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex flex-col items-center justify-center text-white shadow-lg'>
-                <span className='text-3xl font-bold'>{atsScore}</span>
-                <span className='text-sm opacity-90'>/ 100</span>
-              </div>
-              <div className='absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white px-3 py-1 rounded-full shadow-md border border-gray-200'>
-                <span className='text-xs font-semibold text-gray-700'>ATS Score</span>
-              </div>
-            </div>
+        {/* Empty state */}
+        {!analyzing && !analysisResult && !error && (
+          <div className='flex flex-col items-center gap-4 text-gray-400 h-full justify-center'>
+            <FileText className='w-16 h-16' />
+            <p className='text-lg font-medium'>Your analysis will appear here</p>
+            <p className='text-sm'>Upload your resume and click Analyze</p>
           </div>
         )}
 
-        {/* Tabs */}
-        {analysisResult && (analysisResult.strengths || analysisResult.improvements || analysisResult.keywords) && (
-          <div className='flex border-b border-gray-200 mb-6'>
-            <button
-              onClick={() => setActiveTab('strengths')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'strengths'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <TrendingUp className='w-4 h-4 inline mr-2' />
-              Strengths
-            </button>
-            <button
-              onClick={() => setActiveTab('improvements')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'improvements'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <AlertCircle className='w-4 h-4 inline mr-2' />
-              Areas for Improvement
-            </button>
-            <button
-              onClick={() => setActiveTab('keywords')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'keywords'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Target className='w-4 h-4 inline mr-2' />
-              Keyword Suggestions
-            </button>
+        {/* Loading state */}
+        {analyzing && (
+          <div className='flex flex-col items-center gap-4 text-gray-600 h-full justify-center'>
+            <Sparkles className='w-16 h-16 animate-pulse text-[#009BB3]' />
+            <p className='text-lg font-medium'>Analyzing your resume...</p>
+            <p className='text-sm text-gray-500'>This may take a few moments</p>
           </div>
         )}
 
-        <div className='flex-1 overflow-y-auto'>
-          {/* Analyzing State */}
-          {analyzing && (
-            <div className='flex flex-col items-center gap-4 text-gray-600 h-full justify-center'>
-              <div className='relative'>
-                <Sparkles className='w-16 h-16 animate-pulse text-[#009BB3]' />
-                <div className='absolute inset-0 rounded-full border-2 border-[#009BB3] animate-ping opacity-20'></div>
-              </div>
-              <p className='text-lg font-medium'>Analyzing your resume...</p>
-              <p className='text-sm text-gray-500'>This may take a few moments</p>
+        {/* Error state */}
+        {!analyzing && error && (
+          <div className='w-full p-4 bg-red-50 border border-red-200 rounded-lg'>
+            <div className='flex items-center gap-2 mb-2'>
+              <AlertCircle className='w-5 h-5 text-red-600' />
+              <span className='font-semibold text-red-800'>Error</span>
             </div>
-          )}
+            <p className='text-sm text-red-600'>{error}</p>
+          </div>
+        )}
 
-          {/* Error state */}
-          {!analyzing && error && (
-            <div className='w-full p-4 bg-red-50 border border-red-200 rounded-lg'>
-              <div className='flex items-center gap-2 mb-2'>
-                <AlertCircle className='w-5 h-5 text-red-600' />
-                <span className='font-semibold text-red-800'>Error</span>
+        {/* Results */}
+        {!analyzing && analysisResult && (
+          <div className='space-y-4'>
+
+            {/* ATS Score Circle */}
+            {analysisResult.atsScore != null && (
+              <div className='text-center p-4 bg-gray-50 rounded-xl'>
+                <p className='text-xs text-gray-500 mb-2 uppercase tracking-wide font-medium'>ATS Score</p>
+                <div className={`w-24 h-24 rounded-full bg-gradient-to-br ${getScoreStyle(analysisResult.atsScore).bg} flex items-center justify-center mx-auto shadow-lg mb-2`}>
+                  <span className='text-white text-2xl font-bold'>{analysisResult.atsScore}</span>
+                </div>
+                <p className={`font-semibold text-sm ${getScoreStyle(analysisResult.atsScore).text}`}>
+                  {getScoreStyle(analysisResult.atsScore).label}
+                </p>
               </div>
-              <p className='text-sm text-red-600 whitespace-pre-wrap'>{error}</p>
-            </div>
-          )}
+            )}
 
-          {/* Content state */}
-          {!analyzing && !error && analysisResult && (
-            <div className='space-y-4'>
-              {activeTab === 'strengths' && analysisResult.strengths && (
-                <div className='p-4 bg-green-50 rounded-lg border border-green-200'>
-                  <h3 className='text-lg font-semibold text-green-800 mb-3 flex items-center gap-2'>
-                    <TrendingUp className='w-5 h-5' />
-                    Strengths
-                  </h3>
-                  <div className='text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none'>
-                    <ReactMarkdown>{analysisResult.strengths}</ReactMarkdown>
-                  </div>
+            {/* Job Match Score Circle */}
+            {analysisResult.jobMatchScore != null && (
+              <div className='text-center p-3 bg-blue-50 rounded-xl'>
+                <p className='text-xs text-gray-500 mb-2 uppercase tracking-wide font-medium'>Job Match Score</p>
+                <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${getScoreStyle(analysisResult.jobMatchScore).bg} flex items-center justify-center mx-auto shadow mb-1`}>
+                  <span className='text-white text-lg font-bold'>{analysisResult.jobMatchScore}</span>
                 </div>
-              )}
-              
-              {activeTab === 'improvements' && analysisResult.improvements && (
-                <div className='p-4 bg-orange-50 rounded-lg border border-orange-200'>
-                  <h3 className='text-lg font-semibold text-orange-800 mb-3 flex items-center gap-2'>
-                    <AlertCircle className='w-5 h-5' />
-                    Areas for Improvement
-                  </h3>
-                  <div className='text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none'>
-                    <ReactMarkdown>{analysisResult.improvements}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
-              
-              {activeTab === 'keywords' && analysisResult.keywords && (
-                <div className='p-4 bg-blue-50 rounded-lg border border-blue-200'>
-                  <h3 className='text-lg font-semibold text-blue-800 mb-3 flex items-center gap-2'>
-                    <Target className='w-5 h-5' />
-                    Keyword Suggestions
-                  </h3>
-                  <div className='text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none'>
-                    <ReactMarkdown>{analysisResult.keywords}</ReactMarkdown>
-                  </div>
-                </div>
-              )}
+                <p className={`font-semibold text-sm ${getScoreStyle(analysisResult.jobMatchScore).text}`}>
+                  {getScoreStyle(analysisResult.jobMatchScore).label}
+                </p>
+              </div>
+            )}
 
-              {/* Download Button */}
-              {analysisResult && (analysisResult.strengths || analysisResult.improvements || analysisResult.keywords) && (
+            {/* Tabs */}
+            <div className='flex flex-wrap gap-2'>
+              {tabs.map(tab => (
                 <button
-                  onClick={downloadAsPDF}
-                  className='flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-lg hover:opacity-90 transition-opacity shadow-md'
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-[#00DA83] text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
-                  <Download className='w-4 h-4' />
-                  Download as PDF
+                  {tab.label}
                 </button>
-              )}
+              ))}
             </div>
-          )}
 
-          {/* Placeholder state */}
-          {!analyzing && !error && !analysisResult.strengths && !analysisResult.improvements && !analysisResult.keywords && (
-            <div className='text-sm flex flex-col items-center gap-6 text-gray-400 h-full justify-center'>
-              <div className='w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center'>
-                <FileText className='w-10 h-10' />
-              </div>
-              <div className='text-center'>
-                <p className='text-lg font-medium text-gray-600 mb-2'>Ready to analyze your resume</p>
-                <p>Upload a PDF resume and click "Analyze Resume" to get started</p>
-              </div>
+            {/* Tab Content */}
+            <div className='bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed min-h-32'>
+              {tabContent[activeTab]
+                ? <ReactMarkdown>{tabContent[activeTab]}</ReactMarkdown>
+                : <p className='text-gray-400'>No content available for this section.</p>
+              }
             </div>
-          )}
-        </div>
 
+            {/* Download Button */}
+            <button
+              onClick={downloadAsPDF}
+              className='flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-700 to-gray-900 text-white rounded-lg hover:opacity-90 transition-opacity shadow-md w-full justify-center'
+            >
+              <Download className='w-4 h-4' />
+              Download as PDF
+            </button>
+          </div>
+        )}
       </div>
-
     </div>
   )
 }
