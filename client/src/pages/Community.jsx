@@ -87,7 +87,7 @@ const Community = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ creationId })
+        body: JSON.stringify({ creationId, userId: user.id }) // Send userId as string
       })
       
       console.log('Response status:', response.status)

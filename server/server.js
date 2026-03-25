@@ -1,11 +1,11 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import cors from 'cors';
-import 'dotenv/config';
 import { clerkMiddleware } from '@clerk/express'
 import aiRouter from "./routes/aiRoutes.js"
 import sql from './configs/db.js'
 import connectCloudinary from './configs/Cloudinary.js';
-
 
 const app = express()
 

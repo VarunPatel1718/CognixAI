@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/express";
 
-// Middleware to check userId and hasPremiumPlan
+// Middleware to check userId and specific feature permissions
 export const auth = async (req, res, next) => {
   try {
     const authState = req.auth();
@@ -13,6 +13,12 @@ export const auth = async (req, res, next) => {
     const hasFn = authState?.has;
     const hasPremiumPlan = typeof hasFn === "function" ? await hasFn({ plan: "premium" }) : false;
 
+    // Check for specific feature flags from session claims
+    const featureClaims = authState?.sessionClaims?.fea || '';
+    const features = featureClaims.split(',').map(f => f.trim().replace('u:', ''));
+    console.log('🔍 Auth Debug - Feature Claims:', featureClaims);
+    console.log('🔍 Auth Debug - Parsed Features:', features);
+    
     const user = await clerkClient.users.getUser(userId);
 
     const existingFreeUsageRaw = user?.privateMetadata?.free_usage;
@@ -34,8 +40,26 @@ export const auth = async (req, res, next) => {
     }
 
     req.plan = hasPremiumPlan ? 'premium' : 'free';
+    req.features = features; // Add features to request object
     next()
   } catch (error) {
     res.status(500).json({ success: false, message: error.message })
   }
+}
+
+// Middleware to check specific feature permission
+export const requireFeature = (featureName) => {
+  return (req, res, next) => {
+    console.log(`🔍 Feature Debug - Checking for: ${featureName}`);
+    console.log(`🔍 Feature Debug - Available features:`, req.features);
+    console.log(`🔍 Feature Debug - Has feature:`, req.features?.includes(featureName));
+    
+    if (!req.features || !req.features.includes(featureName)) {
+      return res.status(403).json({ 
+        success: false, 
+        message: `Feature '${featureName}' not available in your plan` 
+      });
+    }
+    next();
+  };
 }

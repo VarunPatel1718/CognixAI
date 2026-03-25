@@ -1,15 +1,22 @@
 import express from "express";
-import { auth } from "../middlewares/auth.js";
+import { auth, requireFeature } from "../middlewares/auth.js";
 import { generateArticle, generateBlogTitle, generateImage, reviewResume, removeBackground, removeObject, getUserCreations, getPublishedCreations, toggleLike } from "../controllers/aiController.js";
 
 const aiRouter = express.Router();
 
-aiRouter.post('/generate-article', auth, generateArticle)
-aiRouter.post('/generate-blog-title', auth, generateBlogTitle)
-aiRouter.post('/generate-image', auth, generateImage)
-aiRouter.post('/review-resume', auth, reviewResume)
-aiRouter.post('/remove-background', auth, removeBackground)
-aiRouter.post('/remove-object', auth, removeObject)
+aiRouter.post('/generate-article', auth, requireFeature('article_generation'), generateArticle)
+aiRouter.post('/generate-blog-title', auth, requireFeature('title_generation'), generateBlogTitle)
+aiRouter.post('/generate-image', auth, requireFeature('generate_images'), generateImage)
+aiRouter.post('/review-resume', 
+  (req, res, next) => { console.log('Step 1: auth'); next(); },
+  auth,
+  (req, res, next) => { console.log('Step 2: featureCheck'); next(); },
+  requireFeature('resume_review'),
+  (req, res, next) => { console.log('Step 3: controller'); next(); },
+  reviewResume
+)
+aiRouter.post('/remove-background', auth, requireFeature('remove_background'), removeBackground)
+aiRouter.post('/remove-object', auth, requireFeature('remove_object'), removeObject)
 aiRouter.get('/get-user-creations', auth, getUserCreations)
 aiRouter.get('/get-published-creations', getPublishedCreations)
 aiRouter.post('/toggle-like', auth, toggleLike)

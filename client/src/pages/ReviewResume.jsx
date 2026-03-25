@@ -24,6 +24,27 @@ const ReviewResume = () => {
 
   const { getToken } = useAuth()
 
+  // Helper function to convert error messages to user-friendly messages
+  const getErrorMessage = (error) => {
+    const errorString = error.toString().toLowerCase()
+    
+    if (errorString.includes('429')) {
+      return "Service is temporarily busy. Please try again in a few seconds."
+    } else if (errorString.includes('403')) {
+      return "API configuration error. Please contact support."
+    } else if (errorString.includes('401')) {
+      return "Authentication error. Please sign in again."
+    } else if (errorString.includes('500')) {
+      return "Server error. Please try again later."
+    } else if (errorString.includes('limit reached')) {
+      return "Usage limit reached. Please upgrade to continue."
+    } else if (errorString.includes('network') || errorString.includes('fetch')) {
+      return "Network error. Please check your connection and try again."
+    } else {
+      return "Something went wrong. Please try again."
+    }
+  }
+
   const handleFileUpload = async (file) => {
     if (!file) {
       setError('Please select a PDF file.')
@@ -112,47 +133,55 @@ const ReviewResume = () => {
       })
 
       if (!response.ok) {
+        const errorText = await response.text()
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
 
       if (data.success) {
-        // Try to parse JSON response
-        let parsedResult
-        try {
-          // If response is already an object, use it directly
-          if (typeof data.content === 'object') {
-            parsedResult = data.content
-          } else if (typeof data.content === 'string') {
-            // Try to parse as JSON string
-            parsedResult = JSON.parse(data.content)
-          } else {
-            throw new Error('Invalid response format')
+        // Handle the new structured response format
+        if (typeof data.content === 'object') {
+          // New format: structured object with separate fields
+          setAnalysisResult({
+            strengths: data.content.strengths || '',
+            improvements: data.content.areasForImprovement || '',
+            keywords: data.content.keywordSuggestions || '',
+            ats_score: null
+          });
+          
+          // Try to extract ATS score from the text content
+          const allText = `${data.content.strengths || ''} ${data.content.areasForImprovement || ''} ${data.content.keywordSuggestions || ''}`;
+          const scoreMatch = allText.match(/(\d+)\/100|score[:\s]*(\d+)/i);
+          if (scoreMatch) {
+            const score = parseInt(scoreMatch[1] || scoreMatch[2]);
+            setAtsScore(score);
           }
-        } catch (parseError) {
-          console.error('Failed to parse JSON response:', parseError)
-          // Fallback: try to extract sections from text
-          const content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content)
-          const scoreMatch = content.match(/ATS Score:\s*(\d+)\/100/i)
-          parsedResult = {
-            strengths: content,
-            improvements: '',
-            keywords: '',
-            ats_score: scoreMatch ? parseInt(scoreMatch[1]) : null
+        } else {
+          // Fallback for old format or string content
+          try {
+            const parsedContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+            setAnalysisResult({
+              strengths: parsedContent.strengths || '',
+              improvements: parsedContent.areasForImprovement || parsedContent.improvements || '',
+              keywords: parsedContent.keywordSuggestions || parsedContent.keywords || '',
+              ats_score: parsedContent.ats_score || null
+            });
+            
+            if (parsedContent.ats_score !== null) {
+              setAtsScore(parsedContent.ats_score);
+            }
+          } catch (parseError) {
+            console.error('Failed to parse response:', parseError);
+            setError('Failed to parse AI response. Please try again.');
           }
-        }
-
-        setAnalysisResult(parsedResult)
-        if (parsedResult.ats_score !== null) {
-          setAtsScore(parsedResult.ats_score)
         }
       } else {
-        setError(data.message || 'Something went wrong while analyzing resume.')
+        setError(getErrorMessage(data.message || 'Unknown error'))
       }
     } catch (err) {
       console.error(err)
-      setError('Failed to analyze resume. Make sure server is running and try again.')
+      setError(getErrorMessage(err.message || 'Unknown error'))
     } finally {
       setAnalyzing(false)
     }
