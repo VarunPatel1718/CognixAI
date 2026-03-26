@@ -644,8 +644,7 @@ export const getPublishedCreations = async (req, res) => {
     const rows = await sql`
       SELECT * FROM creations 
       WHERE publish = true 
-      ORDER BY created_at DESC 
-      LIMIT 20
+      ORDER BY created_at DESC
     `;
     console.log("✅ Published creations fetched:", rows.length);
     res.json({ success: true, data: rows });

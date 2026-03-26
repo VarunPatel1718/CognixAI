@@ -1,28 +1,96 @@
 import { useUser } from '@clerk/clerk-react'
-import React, { useEffect, useState } from 'react'
-import { Heart, Download } from 'lucide-react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { Heart, Download, Loader2 } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
 
 const Community = () => {
 
-  const [creations, setCreations] = useState([])
+  const [allCreations, setAllCreations] = useState([])
+  const [displayedCreations, setDisplayedCreations] = useState([])
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState('')
+  
   const { user } = useUser()
   const { getToken } = useAuth()
+  
+  const imagesContainerRef = useRef(null)
+  const loadingRef = useRef(false)
 
-  const fetchPublishedCreations = async () => {
+  const formatPrompt = (prompt) => {
+    if (!prompt) return 'AI Generated Image'
+    
+    const styleKeywords = [
+      'Realistic style', '3D style', 'Anime style', 
+      'Ghibli style', 'Cartoon style', 'Fantasy style', 
+      'Portrait style', 'Realistic'
+    ]
+    
+    let cleanPrompt = prompt
+    let foundStyle = ''
+    
+    styleKeywords.forEach(style => {
+      if (prompt.includes(style)) {
+        foundStyle = style
+        cleanPrompt = cleanPrompt.replace(style, '').trim()
+      }
+    })
+    
+    cleanPrompt = cleanPrompt
+      .replace(/[,\s]+$/, '')
+      .trim()
+    
+    cleanPrompt = cleanPrompt.charAt(0).toUpperCase() + 
+      cleanPrompt.slice(1)
+    
+    if (foundStyle) {
+      return `${cleanPrompt} — ${foundStyle}` 
+    }
+    
+    return cleanPrompt || 'AI Generated Image'
+  }
+
+  const downloadImage = async (url, prompt) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = prompt.slice(0, 20) + '.png'
+      link.click()
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      window.open(url, '_blank')
+    }
+  }
+
+  const fetchAllCreations = useCallback(async () => {
+    if (loadingRef.current) return // Prevent duplicate requests
+    
     try {
       setLoading(true)
       setError('')
+      setAllCreations([])
+      setDisplayedCreations([])
       
-      const response = await fetch('http://localhost:3000/api/ai/get-published-creations')
+      loadingRef.current = true
+      
+      const response = await fetch(`http://localhost:3000/api/ai/get-published-creations`)
       const data = await response.json()
       
       if (data.success) {
         // Filter only image type creations
         const imageCreations = data.data.filter(creation => creation.type === 'image')
-        setCreations(imageCreations)
+        setAllCreations(imageCreations)
+        
+        // Show first 12 images initially
+        const initialCreations = imageCreations.slice(0, 12)
+        setDisplayedCreations(initialCreations)
+        
+        // Check if there are more images to load
+        setHasMore(imageCreations.length > 12)
       } else {
         setError(data.message || 'Failed to fetch creations')
       }
@@ -31,45 +99,31 @@ const Community = () => {
       setError('Failed to load community creations')
     } finally {
       setLoading(false)
+      loadingRef.current = false
     }
-  }
+  }, [])
 
-  const downloadImage = async (imageUrl, prompt) => {
-    try {
-      // Fetch image as a blob to handle cross-origin Cloudinary URLs
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
+  const loadMoreCreations = useCallback(() => {
+    if (!hasMore || loadingMore) return
+    
+    setLoadingMore(true)
+    
+    // Get next 12 images from allCreations
+    const currentLength = displayedCreations.length
+    const nextCreations = allCreations.slice(currentLength, currentLength + 12)
+    
+    if (nextCreations.length > 0) {
+      setDisplayedCreations(prev => [...prev, ...nextCreations])
       
-      // Create a temporary URL for the blob
-      const url = window.URL.createObjectURL(blob)
-      
-      // Create a temporary link element
-      const link = document.createElement('a')
-      link.href = url
-      
-      // Use prompt as filename (cleaned)
-      const filename = prompt ? 
-        prompt.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50) + '.png' 
-        : 'community-image.png'
-      link.download = filename
-      
-      // Trigger the download
-      document.body.appendChild(link)
-      link.click()
-      
-      // Clean up
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading image:', error)
-      // Fallback to simple download if blob method fails
-      const link = document.createElement('a')
-      link.href = imageUrl
-      link.download = 'community-image.png'
-      link.target = '_blank'
-      link.click()
+      // Check if there are still more images
+      const newLength = currentLength + nextCreations.length
+      setHasMore(newLength < allCreations.length)
+    } else {
+      setHasMore(false)
     }
-  }
+    
+    setLoadingMore(false)
+  }, [allCreations, displayedCreations, hasMore, loadingMore])
 
   const toggleLike = async (creationId) => {
     if (!user) return
@@ -95,12 +149,15 @@ const Community = () => {
       console.log('Response data:', data)
       
       if (data.success) {
-        // Update the specific creation in state
-        setCreations(prev => prev.map(creation => 
+        // Update both allCreations and displayedCreations
+        const updateCreations = (creations) => creations.map(creation => 
           creation.id === creationId 
             ? { ...creation, likes: data.likes }
             : creation
-        ))
+        )
+        
+        setAllCreations(updateCreations)
+        setDisplayedCreations(updateCreations)
       } else {
         console.error('Server error:', data.message)
         setError(data.message || 'Failed to toggle like')
@@ -111,11 +168,47 @@ const Community = () => {
     }
   }
 
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!hasMore) return // Stop observing when no more images
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0]
+        if (target.isIntersecting && hasMore && !loadingMore && !loading) {
+          loadMoreCreations()
+        }
+      },
+      {
+        threshold: 1.0,
+        rootMargin: '100px'
+      }
+    )
+
+    const currentContainer = imagesContainerRef.current
+    if (currentContainer) {
+      // Find the loading indicator element
+      const loadingElement = currentContainer.querySelector('[data-infinite-scroll-loading]')
+      if (loadingElement) {
+        observer.observe(loadingElement)
+      }
+    }
+
+    return () => {
+      if (currentContainer) {
+        const loadingElement = currentContainer.querySelector('[data-infinite-scroll-loading]')
+        if (loadingElement) {
+          observer.unobserve(loadingElement)
+        }
+      }
+    }
+  }, [hasMore, loadingMore, loading, loadMoreCreations])
+
   useEffect(() => {
     if (user) {
-      fetchPublishedCreations()
+      fetchAllCreations()
     }
-  }, [user])
+  }, [user, fetchAllCreations])
 
   return (
     <div className='flex-1 h-full flex flex-col gap-4 p-6'>
@@ -128,55 +221,99 @@ const Community = () => {
         )}
       </div>
       
-      <div className='bg-white h-full w-full rounded-xl overflow-y-scroll'>
-        {loading ? (
+      <div className='bg-white h-full w-full rounded-xl overflow-y-scroll' ref={imagesContainerRef}>
+        {loading && displayedCreations.length === 0 ? (
           <div className='flex items-center justify-center h-32'>
             <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
           </div>
-        ) : creations.length === 0 ? (
+        ) : displayedCreations.length === 0 ? (
           <div className='flex items-center justify-center h-32 text-gray-500'>
             No published creations yet. Be the first to share!
           </div>
         ) : (
-          creations.map((creation, index) => (
-            <div
-              key={index}
-              className='relative group inline-block pl-3 pt-3 w-full
-        sm:max-w-1/2 lg:max-w-1/3'
-            >
-              <img
-                src={creation.content}
-                alt=''
-                className='w-full h-full object-cover rounded-lg'
-              />
-
-              <div
-                className='absolute bottom-0 top-0 right-0 left-3 flex gap-2
-  items-end justify-end group-hover:justify-between p-3
-  group-hover:bg-gradient-to-b from-transparent to-black/80
-  text-white rounded-lg'
-            >
-                <p className='text-sm hidden group-hover:block'>
-                  {creation.prompt}
-                </p>
-
-                <div className='flex gap-1 items-center'>
-                  <p>{creation.likes?.length || 0}</p>
-                  <Heart
-                    onClick={() => toggleLike(creation.id)}
-                    className={`min-w-5 h-5 hover:scale-110 cursor-pointer ${creation.likes?.includes(user?.id)
-                      ? 'fill-red-500 text-red-600'
-                      : 'text-white'
-                      }`}
+          <>
+            <div className='grid grid-cols-1 sm:grid-cols-2 gap-4 p-4'>
+              {displayedCreations.map((creation, index) => (
+                <div
+                  key={index}
+                  className='relative group w-full'
+                >
+                  <img
+                    src={creation.content}
+                    alt=''
+                    className='w-full h-full object-cover rounded-lg'
                   />
-                  <Download
-                    onClick={() => downloadImage(creation.content, creation.prompt)}
-                    className='min-w-5 h-5 hover:scale-110 cursor-pointer text-white ml-2'
-                  />
+
+                  {/* Hover overlay */}
+                  <div className='absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+                    <p className='text-sm text-white mb-3 line-clamp-2 min-h-[2.5rem]'>
+                      {formatPrompt(creation.prompt)}
+                    </p>
+                    <div className='flex justify-between items-center'>
+                      <button
+                        onClick={() => downloadImage(creation.content, creation.prompt)}
+                        className='flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-lg hover:bg-white/30 transition-colors'
+                      >
+                        <Download className='w-4 h-4' />
+                        <span className='text-sm'>Download</span>
+                      </button>
+                      
+                      {/* Like button - always visible */}
+                      <div className='flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-2 rounded-lg'>
+                        <p className='text-white text-sm'>{creation.likes?.length || 0}</p>
+                        <Heart
+                          onClick={() => toggleLike(creation.id)}
+                          className={`w-4 h-4 cursor-pointer transition-colors ${creation.likes?.includes(user?.id)
+                            ? 'fill-red-500 text-red-500'
+                            : 'text-white hover:text-red-400'
+                            }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Like button - always visible even when not hovering */}
+                  <div className='absolute top-2 right-2 bg-white/20 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+                    <div className='flex items-center gap-1'>
+                      <p className='text-white text-xs'>{creation.likes?.length || 0}</p>
+                      <Heart
+                        onClick={() => toggleLike(creation.id)}
+                        className={`w-4 h-4 cursor-pointer transition-colors ${creation.likes?.includes(user?.id)
+                          ? 'fill-red-500 text-red-500'
+                          : 'text-white hover:text-red-400'
+                          }`}
+                      />
+                    </div>
+                  </div>
                 </div>
+              ))}
             </div>
-          </div>
-        ))
+
+            {/* Infinite scroll loading indicator */}
+            {hasMore ? (
+              <div 
+                data-infinite-scroll-loading
+                className='flex justify-center items-center py-4'
+              >
+                {loadingMore ? (
+                  <div className='flex items-center gap-2 text-gray-600'>
+                    <Loader2 className='w-5 h-5 animate-spin' />
+                    <span className='text-sm'>Loading more creations...</span>
+                  </div>
+                ) : (
+                  <p className='text-sm text-gray-400'>
+                    Scroll for more
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className='flex justify-center items-center py-4'>
+                <p className='text-sm text-gray-400'>
+                  You have seen all creations
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
