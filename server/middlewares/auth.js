@@ -16,8 +16,6 @@ export const auth = async (req, res, next) => {
     // Check for specific feature flags from session claims
     const featureClaims = authState?.sessionClaims?.fea || '';
     const features = featureClaims.split(',').map(f => f.trim().replace('u:', ''));
-    console.log('🔍 Auth Debug - Feature Claims:', featureClaims);
-    console.log('🔍 Auth Debug - Parsed Features:', features);
     
     const user = await clerkClient.users.getUser(userId);
 
@@ -50,10 +48,6 @@ export const auth = async (req, res, next) => {
 // Middleware to check specific feature permission
 export const requireFeature = (featureName) => {
   return (req, res, next) => {
-    console.log(`🔍 Feature Debug - Checking for: ${featureName}`);
-    console.log(`🔍 Feature Debug - Available features:`, req.features);
-    console.log(`🔍 Feature Debug - Has feature:`, req.features?.includes(featureName));
-    
     if (!req.features || !req.features.includes(featureName)) {
       return res.status(403).json({ 
         success: false, 

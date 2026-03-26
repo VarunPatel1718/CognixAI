@@ -1,11 +1,12 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import Groq from 'groq-sdk';
+import Groq from "groq-sdk";
 import sql from "../configs/db.js";
 import { clerkClient } from "@clerk/express";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
 import { Readable } from "stream";
+import FormData from "form-data";
 
 // Configure Cloudinary V2 immediately after import
 cloudinary.config({
@@ -15,8 +16,8 @@ cloudinary.config({
 });
 
 const AI = new OpenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1"
 });
 
 // Initialize Google Gemini AI
@@ -27,46 +28,65 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export const generateArticle = async (req, res) => {
   try {
-    const auth = req.auth();
-    const { userId } = auth;
-    const { prompt, length } = req.body;
-    const plan = req.plan;
-    const free_usage = req.free_usage;
+    const { userId } = req.auth()
+    const { prompt, length } = req.body
+    const plan = req.plan
+    const free_usage = req.free_usage
 
-    if (plan !== "premium" && free_usage >= 10) {
+    if (plan !== 'premium' && free_usage >= 10) {
       return res.json({
         success: false,
-        message: "Limit reached. Upgrade to continue.",
-      });
+        message: "Limit reached. Upgrade to continue."
+      })
     }
-    const response = await AI.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
+
+    const lengthInstruction = length <= 800 
+      ? 'Write a SHORT article of exactly 500-800 words.' 
+      : length <= 1200 
+      ? 'Write a MEDIUM length article of exactly 800-1200 words.'
+      : 'Write a LONG article of exactly 1200-1600 words.'
+
+    let response
+    try {
+      response = await AI.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [{
           role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: length,
-    });
-
-    const content = response.choices[0].message.content;
-    await sql` INSERT INTO creations (user_id, prompt, content, type)
-    VALUES (${userId}, ${prompt}, ${content}, 'article')`;
-
-    if (plan !== "premium") {
-      await clerkClient.users.updateUserMetadata(userId, {
-        privateMetadata: {
-          free_usage: free_usage + 1,
-        },
-      });
+          content: `${lengthInstruction} Write in plain paragraphs only. Do NOT use bullet points, numbered lists, bold text, headers, or any markdown formatting. Use only plain text paragraphs. Topic: ${prompt}` 
+        }],
+        temperature: 0.7,
+      })
+    } catch (retryError) {
+      if (retryError.message.includes('429')) {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        response = await AI.chat.completions.create({
+          model: "llama-3.1-8b-instant",
+          messages: [{
+            role: "user",
+            content: `${lengthInstruction} Write in plain paragraphs only. Do NOT use bullet points, numbered lists, bold text, headers, or any markdown formatting. Use only plain text paragraphs. Topic: ${prompt}` 
+          }],
+          temperature: 0.7,
+        })
+      } else {
+        throw retryError
+      }
     }
 
-    res.json({ success: true, content });
-  }  catch (error) {
+    const content = response.choices[0].message.content
+    await sql`INSERT INTO creations (user_id, prompt, content, type)
+    VALUES (${userId}, ${prompt}, ${content}, 'article')`
+
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
+    }
+
+    res.json({ success: true, content })
+
+  } catch (error) {
     console.log(error.message)
-    if (error.message.includes('429') || error.status === 429) {
+    if (error.message.includes('429')) {
       return res.json({
         success: false,
         message: "AI service is busy. Please wait 1-2 minutes and try again."
@@ -74,185 +94,241 @@ export const generateArticle = async (req, res) => {
     }
     res.json({ success: false, message: error.message })
   }
-};
+}
 
 export const generateBlogTitle = async (req, res) => {
   try {
-    const auth = req.auth();
-    const { userId } = auth;
-    const { prompt } = req.body;
-    const plan = req.plan;
-    const free_usage = req.free_usage;
+    const { userId } = req.auth()
+    const { prompt } = req.body
+    const plan = req.plan
+    const free_usage = req.free_usage
 
-    if (plan !== "premium" && free_usage >= 10) {
+    if (plan !== 'premium' && free_usage >= 10) {
       return res.json({
         success: false,
-        message: "Limit reached. Upgrade to continue.",
-      });
+        message: "Limit reached. Upgrade to continue."
+      })
     }
-    const response = await AI.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
 
-    const content = response.choices[0].message.content;
-    await sql` INSERT INTO creations (user_id, prompt, content, type)
-    VALUES (${userId}, ${prompt}, ${content}, 'blog-title')`;
+    let response
+    try {
+      response = await AI.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+      })
+    } catch (retryError) {
+      if (retryError.message.includes('429')) {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        response = await AI.chat.completions.create({
+          model: "llama-3.1-8b-instant",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.7,
+        })
+      } else {
+        throw retryError
+      }
+    }
 
-    if (plan !== "premium") {
+    const content = response.choices[0].message.content
+    await sql`INSERT INTO creations (user_id, prompt, content, type)
+    VALUES (${userId}, ${prompt}, ${content}, 'blog-title')`
+
+    if (plan !== 'premium') {
       await clerkClient.users.updateUserMetadata(userId, {
-        privateMetadata: {
-          free_usage: free_usage + 1,
-        },
-      });
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
     }
 
-    res.json({ success: true, content });
+    res.json({ success: true, content })
+
   } catch (error) {
-    console.log('Blog title generation error:', error.message);
-    console.log('Error status:', error.status);
-    console.log('Error details:', error.response?.data);
-    
-    // Handle 429 rate limit errors specifically
-    if (error.message.includes('429') || error.status === 429) {
+    console.log(error.message)
+    if (error.message.includes('429')) {
       return res.json({
         success: false,
         message: "AI service is busy. Please wait 1-2 minutes and try again."
-      });
+      })
     }
-    
-    res.json({ success: false, message: error.message });
+    res.json({ success: false, message: error.message })
   }
-};
+}
 
 export const reviewResume = async (req, res) => {
-  console.log('=== RESUME REVIEW CONTROLLER DEBUG ===');
-  console.log('Resume controller started');
-  console.log('Request body keys:', Object.keys(req.body));
-  console.log('Request files:', req.files);
-  console.log('Request file:', req.file);
-  console.log('Request body:', req.body);
-  
+  console.log("=== RESUME REVIEW CONTROLLER DEBUG ===");
+  console.log("Resume controller started");
+  console.log("Request body keys:", Object.keys(req.body));
+  console.log("Request files:", req.files);
+  console.log("Request file:", req.file);
+  console.log("Request body:", req.body);
+
   try {
     const auth = req.auth();
-    console.log('Auth object:', auth);
-    
+    console.log("Auth object:", auth);
+
     const { userId } = auth;
-    const { resumeText } = req.body;
+    const { resumeText, jobDescription } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
 
-    console.log('Extracted data - userId:', userId);
-    console.log('Extracted data - plan:', plan);
-    console.log('Extracted data - free_usage:', free_usage);
-    console.log('Extracted data - resumeText length:', resumeText?.length || 'undefined');
-    console.log('Extracted data - resumeText preview:', resumeText?.substring(0, 100) + '...' || 'undefined');
+    console.log("Extracted data - userId:", userId);
+    console.log("Extracted data - plan:", plan);
+    console.log("Extracted data - free_usage:", free_usage);
+    console.log(
+      "Extracted data - resumeText length:",
+      resumeText?.length || "undefined",
+    );
+    console.log(
+      "Extracted data - resumeText preview:",
+      resumeText?.substring(0, 100) + "..." || "undefined",
+    );
+    console.log("Extracted data - jobDescription provided:", !!jobDescription);
+    console.log(
+      "Extracted data - jobDescription length:",
+      jobDescription?.length || "undefined",
+    );
+    console.log(
+      "Extracted data - jobDescription preview:",
+      jobDescription?.substring(0, 100) + "..." || "undefined",
+    );
 
     if (!resumeText) {
-      console.log('❌ Missing resumeText - returning 400');
+      console.log("❌ Missing resumeText - returning 400");
       return res.status(400).json({
         success: false,
         message: "Resume text is required.",
       });
     }
 
-    console.log('Checking usage limits...');
-    console.log('Plan check - plan:', plan);
-    console.log('Plan check - free_usage:', free_usage);
-    console.log('Plan check - condition:', plan !== "premium" && free_usage >= 10);
+    console.log("Checking usage limits...");
+    console.log("Plan check - plan:", plan);
+    console.log("Plan check - free_usage:", free_usage);
+    console.log(
+      "Plan check - condition:",
+      plan !== "premium" && free_usage >= 10,
+    );
 
     if (plan !== "premium" && free_usage >= 10) {
-      console.log('❌ Usage limit exceeded - returning limit message');
+      console.log("❌ Usage limit exceeded - returning limit message");
       return res.json({
         success: false,
         message: "Limit reached. Upgrade to continue.",
       });
     }
 
-    console.log('✅ Usage limits passed - calling Groq AI...');
-    console.log('API Key exists:', !!process.env.GROQ_API_KEY);
-    console.log('API Key length:', process.env.GROQ_API_KEY?.length);
+    console.log("✅ Usage limits passed - calling Groq AI...");
+    console.log("API Key exists:", !!process.env.GROQ_API_KEY);
+    console.log("API Key length:", process.env.GROQ_API_KEY?.length);
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: "llama-3.1-8b-instant",
       messages: [
         {
-          role: 'user',
-          content: `You are an expert resume reviewer. Analyze the following resume and return ONLY a valid JSON object with exactly these three keys:
+          role: "user",
+          content: `You are an expert resume reviewer and ATS specialist. Analyze the following resume and return ONLY a valid JSON object with exactly these keys:
 
 {
-  "strengths": "detailed paragraph about what is candidate does well, strong points, impressive aspects of resume",
+  "strengths": "detailed paragraph about strong points and impressive aspects",
   
-  "areasForImprovement": "detailed paragraph about weaknesses, gaps, things that need to be fixed or improved",
+  "areasForImprovement": "detailed paragraph about weaknesses and gaps that need fixing",
   
-  "keywordSuggestions": "detailed paragraph listing specific keywords, skills, and buzzwords that candidate should add to pass ATS systems and match job descriptions"
+  "keywordSuggestions": "list specific ATS keywords, technical skills, and buzzwords missing from this resume that would help pass ATS filters",
+  
+  "atsScore": <a number between 0 and 100 representing how well this resume would perform in ATS systems based on formatting, keywords, structure, and clarity>,
+  
+  "atsBreakdown": "explain the ATS score - mention specific reasons for the score covering: keyword density, formatting issues, section headers, contact info completeness, and quantified achievements",
+  
+  "rewriteSuggestions": "pick 3 weak bullet points from the resume and rewrite them to be stronger using action verbs and metrics. Format as: ORIGINAL: ... → REWRITTEN: ..."
 }
 
-Return ONLY the JSON, no markdown, no extra text.
+${
+  jobDescription
+    ? `
 
-Resume:
-${resumeText}`
-        }
+Additionally, analyze how well the resume matches the following job description and provide job matching analysis:
+
+Job Description: ${jobDescription}
+
+Resume Analysis: ${resumeText}
+
+Please provide:
+1. "jobMatchScore": <0-100 number for overall compatibility>
+2. "jobMatchAnalysis": "detailed explanation of what matches well, what skills/experience are missing, and what improvements would make the resume stronger for this specific role"
+
+Return ONLY JSON, no markdown, no extra text.`
+    : ""
+}
+
+Return ONLY: JSON, no markdown, no extra text.`,
+        },
       ],
       max_tokens: 1500,
     });
 
     const content = completion.choices[0].message.content;
-    const parsed = JSON.parse(content);
 
-    console.log('✅ Groq AI response received');
-    console.log('Response content length:', content?.length || 0);
-    console.log('Response content preview:', content?.substring(0, 200) + '...' || 'undefined');
+    // Clean content by removing markdown backticks that Groq sometimes adds
+    const cleanContent = content
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-    console.log('Saving to database...');
+    const parsed = JSON.parse(cleanContent);
+
+    console.log("✅ Groq AI response received");
+    console.log("Response content length:", content?.length || 0);
+    console.log(
+      "Response content preview:",
+      content?.substring(0, 200) + "..." || "undefined",
+    );
+
+    console.log("Saving to database...");
     await sql` INSERT INTO creations (user_id, prompt, content, type)
     VALUES (${userId}, ${resumeText}, ${content}, 'resume-review')`;
-    console.log('✅ Database save complete');
+    console.log("✅ Database save complete");
 
     if (plan !== "premium") {
-      console.log('Updating usage metadata for free user...');
+      console.log("Updating usage metadata for free user...");
       await clerkClient.users.updateUserMetadata(userId, {
         privateMetadata: {
           free_usage: free_usage + 1,
         },
       });
-      console.log('✅ Usage metadata updated');
+      console.log("✅ Usage metadata updated");
     }
 
-    console.log('✅ Resume review completed successfully');
-    res.json({ 
-      success: true, 
+    console.log("✅ Resume review completed successfully");
+    res.json({
+      success: true,
       content: {
         strengths: parsed.strengths,
         areasForImprovement: parsed.areasForImprovement,
-        keywordSuggestions: parsed.keywordSuggestions
-      }
+        keywordSuggestions: parsed.keywordSuggestions,
+        atsScore: parsed.atsScore,
+        atsBreakdown: parsed.atsBreakdown,
+        rewriteSuggestions: parsed.rewriteSuggestions,
+        jobMatchScore: parsed.jobMatchScore,
+        jobMatchAnalysis: parsed.jobMatchAnalysis,
+      },
     });
   } catch (error) {
-    console.log('❌ RESUME REVIEW ERROR:');
-    console.log('Error message:', error.message);
-    console.log('Error status:', error.response?.status);
-    console.log('Error data:', error.response?.data);
-    console.log('Full error object:', error);
-    console.log('Error stack:', error.stack);
-    
+    console.log("❌ RESUME REVIEW ERROR:");
+    console.log("Error message:", error.message);
+    console.log("Error status:", error.response?.status);
+    console.log("Error data:", error.response?.data);
+    console.log("Full error object:", error);
+    console.log("Error stack:", error.stack);
+
     // Check if this is a 403 error being swallowed
     if (error.response?.status === 403) {
-      console.log('❌ 403 ERROR DETECTED IN CATCH BLOCK');
-      console.log('403 Error Details:', error.response?.data);
+      console.log("❌ 403 ERROR DETECTED IN CATCH BLOCK");
+      console.log("403 Error Details:", error.response?.data);
       return res.status(403).json({
         success: false,
-        message: "API authentication failed during resume review."
+        message: "API authentication failed during resume review.",
       });
     }
-    
+
     res.json({ success: false, message: error.message });
   }
 };
@@ -306,13 +382,13 @@ export const generateImage = async (req, res) => {
     console.log("🚀 Calling Hugging Face FLUX API...");
 
     const response = await axios.post(
-      'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell',
+      "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
       { inputs: prompt },
       {
         headers: {
           Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-          'Content-Type': 'application/json',
-          'Accept': 'image/jpeg',
+          "Content-Type": "application/json",
+          Accept: "image/jpeg",
         },
         responseType: "arraybuffer",
         timeout: 60000,
@@ -389,7 +465,7 @@ export const generateImage = async (req, res) => {
     console.error("❌ Error Data:", error.response?.data);
     console.error("❌ Full Error:", error);
     console.error("Hugging Face Error Details:", error.response?.data);
-    
+
     // Add buffer error logging for debugging
     if (error.response?.data) {
       console.log("Buffer error data:", error.response.data.toString());
@@ -479,7 +555,7 @@ export const removeObject = async (req, res) => {
   try {
     const auth = req.auth();
     const { userId } = auth;
-    const { imageBase64, objectName } = req.body;
+    const { imageBase64, maskBase64 } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
 
@@ -490,35 +566,48 @@ export const removeObject = async (req, res) => {
       });
     }
 
-    if (!imageBase64 || !objectName) {
+    if (!imageBase64 || !maskBase64) {
       return res.status(400).json({
         success: false,
-        message: "Image and object name are required.",
+        message: "Image and mask are required.",
       });
     }
 
-    // Extract base64 data
-    const base64Data = imageBase64.includes(",")
-      ? imageBase64.split(",")[1]
-      : imageBase64;
-    const imageBuffer = Buffer.from(base64Data, "base64");
-
-    // Use Hugging Face Inference API for object removal
-    const response = await axios.post(
-      "https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4",
-      imageBuffer,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
-          "Content-Type": "image/jpeg",
-        },
-        responseType: "arraybuffer",
-        timeout: 60000,
-      },
+    // Convert base64 to buffer
+    const imageBuffer = Buffer.from(
+      imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+      "base64",
+    );
+    const maskBuffer = Buffer.from(
+      maskBase64.replace(/^data:image\/\w+;base64,/, ""),
+      "base64",
     );
 
-    const resultBase64 = Buffer.from(response.data).toString("base64");
-    const imageDataUrl = `data:image/png;base64,${resultBase64}`;
+    const formData = new FormData();
+    formData.append("image_file", imageBuffer, {
+      filename: "image.png",
+      contentType: "image/png",
+    });
+    formData.append("mask_file", maskBuffer, {
+      filename: "mask.png",
+      contentType: "image/png",
+    });
+
+    const response = await fetch("https://clipdrop-api.co/cleanup/v1", {
+      method: "POST",
+      headers: {
+        "x-api-key": process.env.CLIPDROP_API_KEY,
+        ...formData.getHeaders(),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Clipdrop API error: ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Result = Buffer.from(arrayBuffer).toString("base64");
 
     if (plan !== "premium") {
       await clerkClient.users.updateUserMetadata(userId, {
@@ -526,10 +615,16 @@ export const removeObject = async (req, res) => {
       });
     }
 
-    res.json({ success: true, content: imageDataUrl });
+    res.json({
+      success: true,
+      content: `data:image/png;base64,${base64Result}`,
+    });
   } catch (error) {
-    console.log(error.message);
-    res.json({ success: false, message: error.message });
+    console.error("Remove Object Error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 

@@ -133,7 +133,19 @@ const BlogTitles = () => {
                 <div
                   key={index}
                   className='flex items-start gap-3 p-3 bg-purple-50 border border-purple-100 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors'
-                  onClick={() => navigator.clipboard.writeText(title)}
+                  onClick={() => {
+                    navigator.clipboard.writeText(title)
+                      .then(() => alert('Title copied to clipboard!'))
+                      .catch(() => {
+                        const el = document.createElement('textarea')
+                        el.value = title
+                        document.body.appendChild(el)
+                        el.select()
+                        document.execCommand('copy')
+                        document.body.removeChild(el)
+                        alert('Title copied!')
+                      })
+                  }}
                   title='Click to copy'
                 >
                   <span className='text-xs font-bold text-purple-600 mt-0.5'>
