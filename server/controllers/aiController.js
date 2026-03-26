@@ -553,9 +553,8 @@ export const removeBackground = async (req, res) => {
 
 export const removeObject = async (req, res) => {
   try {
-    const auth = req.auth();
-    const { userId } = auth;
-    const { imageBase64, maskBase64 } = req.body;
+    const { userId } = req.auth();
+    const { imageBase64, objectName } = req.body;
     const plan = req.plan;
     const free_usage = req.free_usage;
 
@@ -566,48 +565,46 @@ export const removeObject = async (req, res) => {
       });
     }
 
-    if (!imageBase64 || !maskBase64) {
+    if (!imageBase64 || !objectName) {
       return res.status(400).json({
         success: false,
-        message: "Image and mask are required.",
+        message: "Image and object name are required.",
       });
     }
 
-    // Convert base64 to buffer
-    const imageBuffer = Buffer.from(
-      imageBase64.replace(/^data:image\/\w+;base64,/, ""),
-      "base64",
-    );
-    const maskBuffer = Buffer.from(
-      maskBase64.replace(/^data:image\/\w+;base64,/, ""),
-      "base64",
-    );
+    // Extract base64 data
+    const base64Data = imageBase64.includes(",")
+      ? imageBase64.split(",")[1]
+      : imageBase64;
+    const imageBuffer = Buffer.from(base64Data, "base64");
 
-    const formData = new FormData();
-    formData.append("image_file", imageBuffer, {
-      filename: "image.png",
-      contentType: "image/png",
-    });
-    formData.append("mask_file", maskBuffer, {
-      filename: "mask.png",
-      contentType: "image/png",
-    });
+    const FormData = (await import('form-data')).default
+    const formData = new FormData()
+    formData.append('image_file', imageBuffer, {
+      filename: 'image.jpg',
+      contentType: 'image/jpeg'
+    })
+    formData.append('size', 'preview')
 
-    const response = await fetch("https://clipdrop-api.co/cleanup/v1", {
-      method: "POST",
-      headers: {
-        "x-api-key": process.env.CLIPDROP_API_KEY,
-        ...formData.getHeaders(),
-      },
-      body: formData,
-    });
+    const response = await axios.post(
+      'https://api.remove.bg/v1.0/removebg',
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          'X-Api-Key': process.env.REMOVEBG_API_KEY,
+        },
+        responseType: 'arraybuffer',
+        timeout: 60000
+      }
+    )
 
-    if (!response.ok) {
-      throw new Error(`Clipdrop API error: ${response.status}`);
-    }
+    const resultBase64 = Buffer.from(response.data).toString('base64')
+    const contentType = response.headers['content-type'] || 'image/png'
+    const imageDataUrl = `data:${contentType};base64,${resultBase64}`
 
-    const arrayBuffer = await response.arrayBuffer();
-    const base64Result = Buffer.from(arrayBuffer).toString("base64");
+    await sql`INSERT INTO creations (user_id, prompt, content, type, publish)
+    VALUES (${userId}, ${objectName}, ${imageDataUrl}, 'remove-object', false)`;
 
     if (plan !== "premium") {
       await clerkClient.users.updateUserMetadata(userId, {
@@ -615,16 +612,14 @@ export const removeObject = async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      content: `data:image/png;base64,${base64Result}`,
+    res.json({ 
+      success: true, 
+      content: imageDataUrl,
+      message: 'Background removed. Main subject preserved.'
     });
   } catch (error) {
-    console.error("Remove Object Error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
   }
 };
 
