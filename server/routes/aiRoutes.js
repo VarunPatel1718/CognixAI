@@ -1,6 +1,6 @@
 import express from "express";
 import { auth, requireFeature } from "../middlewares/auth.js";
-import { generateArticle, generateBlogTitle, generateImage, reviewResume, removeBackground, removeObject, getUserCreations, getPublishedCreations, toggleLike } from "../controllers/aiController.js";
+import { generateArticle, generateBlogTitle, generateImage, reviewResume, removeBackground, removeObject, generateCode, getUserCreations, getPublishedCreations, toggleLike } from "../controllers/aiController.js";
 
 const aiRouter = express.Router();
 
@@ -17,6 +17,7 @@ aiRouter.post('/review-resume',
 )
 aiRouter.post('/remove-background', auth, requireFeature('remove_background'), removeBackground)
 aiRouter.post('/remove-object', auth, requireFeature('remove_object'), removeObject)
+aiRouter.post('/generate-code', auth, generateCode)
 aiRouter.get('/get-user-creations', auth, getUserCreations)
 aiRouter.get('/get-published-creations', getPublishedCreations)
 aiRouter.post('/toggle-like', auth, toggleLike)

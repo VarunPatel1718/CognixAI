@@ -551,6 +551,87 @@ export const removeBackground = async (req, res) => {
   }
 };
 
+export const generateCode = async (req, res) => {
+  try {
+    const { userId } = req.auth()
+    const { prompt, language, codeType } = req.body
+    const plan = req.plan
+    const free_usage = req.free_usage
+
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      })
+    }
+
+    const systemPrompt = codeType === 'full' 
+    ? `You are an expert ${language} programmer. 
+       Generate a COMPLETE, RUNNABLE ${language} program for: ${prompt}
+   
+   STRICT RULES:
+   - Generate code in ${language} ONLY
+   - Do NOT include code in any other language like Java, Python etc
+   - Include ALL necessary imports/headers for ${language}
+   - Include main function/entry point for ${language}
+   - Include sample test cases with expected output
+   - Add comments explaining the code
+   - Make sure it compiles and runs without errors
+   - For C++: use #include<bits/stdc++.h> and using namespace std
+   - For Python: include if __name__ == '__main__': block
+   - For Java: include proper class name and main method
+   - For JavaScript/Node.js: include console.log test cases
+   - For SQL: include CREATE TABLE and INSERT statements
+   - OPTIMIZATION: Use the most efficient algorithm possible
+   - OPTIMIZATION: Mention time complexity O(n) in comments
+   - OPTIMIZATION: Mention space complexity in comments
+   - OPTIMIZATION: Prefer built-in optimized functions
+   - Return ONLY the ${language} code, nothing else`
+    : `You are an expert ${language} programmer.
+       Generate ONLY the core logic/function in ${language} for: ${prompt}
+   
+   STRICT RULES:
+   - Generate code in ${language} ONLY
+   - Do NOT include code in any other language like Java, Python etc
+   - Write only the function/method (LeetCode style)
+   - No main function needed
+   - Use proper ${language} syntax and conventions
+   - For C++: write as C++ function only, no Java/Python
+   - For Python: write as Python function only, no C++/Java
+   - For Java: write inside Solution class only, no C++/Python
+   - For JavaScript: write as JS function only
+   - For TypeScript: write as TS function with types
+   - OPTIMIZATION: Use the most time-efficient algorithm
+   - OPTIMIZATION: Add time complexity O(?) as comment
+   - OPTIMIZATION: Add space complexity O(?) as comment
+   - OPTIMIZATION: Prefer built-in optimized functions
+   - Return ONLY the ${language} function code, nothing else`
+
+    const response = await AI.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [{ role: "user", content: systemPrompt }],
+      temperature: 0.3,
+    })
+
+    const content = response.choices[0].message.content
+
+    await sql`INSERT INTO creations (user_id, prompt, content, type)
+    VALUES (${userId}, ${prompt}, ${content}, 'code')`
+
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
+    }
+
+    res.json({ success: true, content })
+
+  } catch (error) {
+    console.log(error.message)
+    res.json({ success: false, message: error.message })
+  }
+}
+
 export const removeObject = async (req, res) => {
   try {
     const { userId } = req.auth();
