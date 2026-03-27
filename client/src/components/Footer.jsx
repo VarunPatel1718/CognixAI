@@ -1,7 +1,79 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { assets } from '../assets/assets'
+import axios from 'axios'
+import { Loader2 } from 'lucide-react'
 
 const Footer = () => {
+    const [email, setEmail] = useState('')
+    const [loading, setLoading] = useState(false)
+    const [message, setMessage] = useState('')
+    const [messageType, setMessageType] = useState('') // 'success', 'error', 'info'
+
+    const validateEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        return emailRegex.test(email)
+    }
+
+    const handleSubscribe = async () => {
+        // Clear previous messages
+        setMessage('')
+        setMessageType('')
+
+        // Validate email
+        if (!email.trim()) {
+            setMessage('Please enter a valid email address')
+            setMessageType('error')
+            return
+        }
+
+        if (!validateEmail(email)) {
+            setMessage('Please enter a valid email address')
+            setMessageType('error')
+            return
+        }
+
+        setLoading(true)
+
+        try {
+            const response = await axios.post(
+                'http://localhost:3000/api/newsletter/subscribe',
+                { email: email.trim() }
+            )
+
+            if (response.data.success) {
+                setEmail('') // Clear input
+                setMessage('✅ Thank you for subscribing! We\'ll keep you updated.')
+                setMessageType('success')
+            } else {
+                if (response.data.message.includes('already') || response.data.message.includes('duplicate')) {
+                    setMessage('You are already subscribed!')
+                    setMessageType('info')
+                } else {
+                    setMessage('❌ Something went wrong. Please try again.')
+                    setMessageType('error')
+                }
+            }
+        } catch (error) {
+            console.error('Newsletter subscription error:', error)
+            if (error.response?.data?.message?.includes('already') || error.response?.data?.message?.includes('duplicate')) {
+                setMessage('You are already subscribed!')
+                setMessageType('info')
+            } else {
+                setMessage('❌ Something went wrong. Please try again.')
+                setMessageType('error')
+            }
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            handleSubscribe()
+        }
+    }
+
     return (
         <footer className='px-6 md:px-16 lg:px-24 xl:px-32 pt-8 w-full text-gray-500 mt-20'>
             <div className='flex flex-col md:flex-row justify-between w-full gap-10 border-b border-gray-500/30 pb-6'>
@@ -57,13 +129,48 @@ const Footer = () => {
                     <p className='mt-3 text-sm'>
                         Subscribe to our newsletter for inspiration and special offers.
                     </p>
-                    <div className='flex items-center mt-4'>
-                        <input type="text" className='bg-white rounded-l border border-gray-300 h-9 px-3 outline-none' placeholder='Your email' />
-                        <button className='flex items-center justify-center bg-black h-9 w-9 aspect-square rounded-r cursor-pointer'>
-                            {/* Arrow icon */}
-                            <svg className="w-4 h-4 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 12H5m14 0-4 4m4-4-4-4" /></svg>
-                        </button>
-                    </div>
+                    
+                    {/* Newsletter Form */}
+                    {messageType === 'success' ? (
+                        /* Success Message */
+                        <div className='mt-4 p-3 bg-green-50 border border-green-200 rounded-lg'>
+                            <p className='text-sm text-green-700'>{message}</p>
+                        </div>
+                    ) : (
+                        /* Input Form */
+                        <div className='mt-4'>
+                            <div className='flex items-center'>
+                                <input 
+                                    type="email" 
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    className='bg-white rounded-l border border-gray-300 h-9 px-3 outline-none focus:border-indigo-500 flex-1' 
+                                    placeholder='Your email' 
+                                    disabled={loading}
+                                />
+                                <button 
+                                    onClick={handleSubscribe}
+                                    disabled={loading}
+                                    className='flex items-center justify-center bg-black h-9 w-9 aspect-square rounded-r cursor-pointer hover:bg-gray-800 transition-colors disabled:bg-gray-400'
+                                >
+                                    {loading ? (
+                                        <Loader2 className="w-4 h-4 text-white animate-spin" />
+                                    ) : (
+                                        /* Arrow icon */
+                                        <svg className="w-4 h-4 text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 12H5m14 0-4 4m4-4-4-4" /></svg>
+                                    )}
+                                </button>
+                            </div>
+                            
+                            {/* Error/Info Message */}
+                            {message && (
+                                <div className={`mt-2 text-xs ${messageType === 'error' ? 'text-red-600' : 'text-blue-600'}`}>
+                                    {message}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
             <hr className='border-gray-300 mt-8' />
@@ -78,6 +185,5 @@ const Footer = () => {
         </footer>
     );
 };
-
 
 export default Footer

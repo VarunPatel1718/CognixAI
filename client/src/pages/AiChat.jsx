@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@clerk/clerk-react'
 import { useUser } from '@clerk/clerk-react'
 import axios from 'axios'
-import { Send, MessageCircle, Trash2 } from 'lucide-react'
+import { Send, MessageCircle, Trash2, Copy, Download } from 'lucide-react'
 
 const AiChat = () => {
   const { getToken } = useAuth()
@@ -11,6 +11,7 @@ const AiChat = () => {
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [copiedIndex, setCopiedIndex] = useState(null)
   
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
@@ -89,6 +90,38 @@ const AiChat = () => {
     inputRef.current?.focus()
   }
 
+  const copyMessage = (text, index) => {
+    navigator.clipboard.writeText(text)
+    setCopiedIndex(index)
+    setTimeout(() => setCopiedIndex(null), 1500)
+  }
+
+  const downloadMessage = (text) => {
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'cognixai-response.txt'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadFullChat = () => {
+    const chatText = messages.map(msg => 
+      msg.role === 'user' 
+        ? `You: ${msg.content}` 
+        : `CognixAI: ${msg.content}` 
+    ).join('\n\n---\n\n')
+    
+    const blob = new Blob([chatText], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'cognixai-chat.txt'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const formatMessage = (content) => {
     return content.split('\n').map((line, index) => (
       <span key={index}>
@@ -111,13 +144,22 @@ const AiChat = () => {
             <p className="text-sm text-gray-500">Ask me anything!</p>
           </div>
         </div>
-        <button
-          onClick={clearChat}
-          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Clear chat"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={downloadFullChat}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Download full chat"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            onClick={clearChat}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Clear chat"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Messages Container */}
@@ -172,16 +214,44 @@ const AiChat = () => {
                   </div>
 
                   {/* Message Bubble */}
-                  <div
-                    className={`px-4 py-3 rounded-2xl ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-800'
-                    }`}
-                  >
-                    <p className="text-sm leading-relaxed">
-                      {formatMessage(message.content)}
-                    </p>
+                  <div className="relative group">
+                    <div
+                      className={`px-4 py-3 rounded-2xl ${
+                        message.role === 'user'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-800'
+                      }`}
+                    >
+                      <p className="text-sm leading-relaxed">
+                        {formatMessage(message.content)}
+                      </p>
+                    </div>
+
+                    {/* Copy and Download Buttons - Only for AI Messages */}
+                    {message.role === 'assistant' && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => copyMessage(message.content, index)}
+                            className="p-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                            title="Copy message"
+                          >
+                            {copiedIndex === index ? (
+                              <span className="text-xs">✓</span>
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => downloadMessage(message.content)}
+                            className="p-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+                            title="Download message"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

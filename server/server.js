@@ -4,6 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import { clerkMiddleware } from '@clerk/express'
 import aiRouter from "./routes/aiRoutes.js"
+import newsletterRouter from "./routes/newsletterRoutes.js"
 import sql from './configs/db.js'
 import connectCloudinary from './configs/Cloudinary.js';
 
@@ -27,6 +28,7 @@ app.get('/api/health', (req, res) => {
 
 // PROTECTED routes
 app.use('/api/ai', aiRouter)
+app.use('/api/newsletter', newsletterRouter)
 
 const PORT = process.env.PORT || 3000;
 
