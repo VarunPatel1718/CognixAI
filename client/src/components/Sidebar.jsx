@@ -6,6 +6,7 @@ import {
   Hash,
   House,
   Image,
+  MessageCircle,
   Scissors,
   SquarePen,
   Users
@@ -18,6 +19,7 @@ import { LogOut } from "lucide-react"
 
 const navItems = [
   { to: '/ai', label: 'Dashboard', Icon: House },
+  { to: '/ai/chat', label: 'AI Chat', Icon: MessageCircle },
   { to: '/ai/write-article', label: 'Write Article', Icon: SquarePen },
   { to: '/ai/blog-titles', label: 'Blog Titles', Icon: Hash },
   { to: '/ai/generate-code', label: 'Code Generator', Icon: Code },

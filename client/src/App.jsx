@@ -11,6 +11,7 @@ import RemoveObject from "./pages/RemoveObject";
 import ReviewResume from "./pages/ReviewResume";
 import Community from "./pages/Community";
 import GenerateCode from "./pages/GenerateCode";
+import AiChat from "./pages/AiChat";
 import { useAuth } from "@clerk/clerk-react";
 import { useEffect } from "react";
 
@@ -27,6 +28,7 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/ai" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="chat" element={<AiChat />} />
           <Route path="write-article" element={<WriteArticle />} />
           <Route path="blog-titles" element={<BlogTitles />} />
           <Route path="generate-code" element={<GenerateCode />} />

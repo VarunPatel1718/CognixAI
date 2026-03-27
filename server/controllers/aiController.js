@@ -551,6 +551,51 @@ export const removeBackground = async (req, res) => {
   }
 };
 
+export const chatWithAI = async (req, res) => {
+  try {
+    const { userId } = req.auth()
+    const { messages } = req.body
+    const plan = req.plan
+    const free_usage = req.free_usage
+
+    if (plan !== 'premium' && free_usage >= 10) {
+      return res.json({
+        success: false,
+        message: "Limit reached. Upgrade to continue."
+      })
+    }
+
+    const response = await AI.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        {
+          role: "system",
+          content: `You are CognixAI Assistant, a helpful, 
+          smart and friendly AI assistant. You help users 
+          with any questions, tasks, coding, writing, analysis 
+          and more. Be concise, helpful and professional.`
+        },
+        ...messages
+      ],
+      temperature: 0.7,
+    })
+
+    const content = response.choices[0].message.content
+
+    if (plan !== 'premium') {
+      await clerkClient.users.updateUserMetadata(userId, {
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
+    }
+
+    res.json({ success: true, content })
+
+  } catch (error) {
+    console.log(error.message)
+    res.json({ success: false, message: error.message })
+  }
+}
+
 export const generateCode = async (req, res) => {
   try {
     const { userId } = req.auth()
