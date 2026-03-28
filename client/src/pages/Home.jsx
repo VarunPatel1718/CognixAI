@@ -23,12 +23,16 @@ const Home = () => {
       {/* Demo Modal */}
       {showDemo && (
         <div className='fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4' onClick={() => setShowDemo(false)}>
-          <div className='bg-white rounded-2xl p-6 max-w-lg w-full' onClick={e => e.stopPropagation()}>
+          <div className='rounded-2xl p-6 max-w-lg w-full' style={{
+            background: 'rgba(255,255,255,0.04)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.08)'
+          }} onClick={e => e.stopPropagation()}>
             <div className='flex justify-between items-center mb-4'>
-              <h2 className='text-xl font-semibold'>
+              <h2 className='text-xl font-semibold text-slate-100'>
                 CognixAI Features
               </h2>
-              <button onClick={() => setShowDemo(false)} className='text-gray-400 hover:text-gray-600 text-2xl font-bold'>×</button>
+              <button onClick={() => setShowDemo(false)} className='text-slate-400 hover:text-slate-200 text-2xl font-bold'>×</button>
             </div>
             <div className='grid grid-cols-2 gap-3'>
               {[
@@ -39,16 +43,22 @@ const Home = () => {
                 { icon: '📄', title: 'Resume Analyzer', desc: 'Get ATS score and feedback' },
                 { icon: '👥', title: 'Community', desc: 'Share AI creations publicly' },
               ].map((feature, i) => (
-                <div key={i} className='p-3 bg-gray-50 rounded-xl'>
+                <div key={i} className='p-3 rounded-xl' style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}>
                   <div className='text-2xl mb-1'>{feature.icon}</div>
-                  <p className='font-medium text-sm'>{feature.title}</p>
-                  <p className='text-xs text-gray-500'>{feature.desc}</p>
+                  <p className='font-medium text-sm text-slate-100'>{feature.title}</p>
+                  <p className='text-xs text-slate-400'>{feature.desc}</p>
                 </div>
               ))}
             </div>
             <button 
               onClick={() => { setShowDemo(false); navigate('/ai') }}
-              className='w-full mt-4 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors'>
+              className='w-full mt-4 text-white py-2 rounded-lg transition-colors'
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #0d9488)' }}
+            >
               Start Creating Now →
             </button>
           </div>

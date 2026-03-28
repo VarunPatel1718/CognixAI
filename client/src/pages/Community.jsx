@@ -213,7 +213,7 @@ const Community = () => {
   return (
     <div className='flex-1 h-full flex flex-col gap-4 p-6'>
       <div className='flex items-center justify-between mb-4'>
-        <h2 className='text-xl font-semibold'>Community Creations</h2>
+        <h2 className='text-xl font-semibold text-slate-200'>Community Creations</h2>
         {error && (
           <div className='text-sm text-red-600 bg-red-50 px-3 py-1 rounded'>
             {error}
@@ -221,13 +221,13 @@ const Community = () => {
         )}
       </div>
       
-      <div className='bg-white h-full w-full rounded-xl overflow-y-scroll' ref={imagesContainerRef}>
+      <div className='flex-1 overflow-y-auto' ref={imagesContainerRef}>
         {loading && displayedCreations.length === 0 ? (
           <div className='flex items-center justify-center h-32'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600'></div>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-violet-400'></div>
           </div>
         ) : displayedCreations.length === 0 ? (
-          <div className='flex items-center justify-center h-32 text-gray-500'>
+          <div className='flex items-center justify-center h-32 text-slate-500'>
             No published creations yet. Be the first to share!
           </div>
         ) : (
@@ -264,25 +264,11 @@ const Community = () => {
                         <Heart
                           onClick={() => toggleLike(creation.id)}
                           className={`w-4 h-4 cursor-pointer transition-colors ${creation.likes?.includes(user?.id)
-                            ? 'fill-red-500 text-red-500'
-                            : 'text-white hover:text-red-400'
+                            ? 'fill-red-500 text-red-400'
+                            : 'text-white hover:text-red-300'
                             }`}
                         />
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Like button - always visible even when not hovering */}
-                  <div className='absolute top-2 right-2 bg-white/20 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
-                    <div className='flex items-center gap-1'>
-                      <p className='text-white text-xs'>{creation.likes?.length || 0}</p>
-                      <Heart
-                        onClick={() => toggleLike(creation.id)}
-                        className={`w-4 h-4 cursor-pointer transition-colors ${creation.likes?.includes(user?.id)
-                          ? 'fill-red-500 text-red-500'
-                          : 'text-white hover:text-red-400'
-                          }`}
-                      />
                     </div>
                   </div>
                 </div>
@@ -296,19 +282,19 @@ const Community = () => {
                 className='flex justify-center items-center py-4'
               >
                 {loadingMore ? (
-                  <div className='flex items-center gap-2 text-gray-600'>
-                    <Loader2 className='w-5 h-5 animate-spin' />
+                  <div className='flex items-center gap-2 text-slate-400'>
+                    <Loader2 className='w-5 h-5 animate-spin text-violet-400' />
                     <span className='text-sm'>Loading more creations...</span>
                   </div>
                 ) : (
-                  <p className='text-sm text-gray-400'>
+                  <p className='text-sm text-slate-400'>
                     Scroll for more
                   </p>
                 )}
               </div>
             ) : (
               <div className='flex justify-center items-center py-4'>
-                <p className='text-sm text-gray-400'>
+                <p className='text-sm text-slate-500'>
                   You have seen all creations
                 </p>
               </div>

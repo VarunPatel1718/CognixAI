@@ -135,31 +135,40 @@ const RemoveBackground = () => {
   return (
     <div className="h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700">
       {/* left col */}
-      <form onSubmit={onSubmitHandler} className="w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200">
+      <form onSubmit={onSubmitHandler} className="w-full max-w-lg p-4 rounded-xl" style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '16px'
+      }}>
         <div className="flex items-center gap-3">
           <Sparkles className="w-6 text-[#FF4938]" />
           <h1 className="text-xl font-semibold">Background Remover</h1>
         </div>
-        <p className="mt-6 text-sm font-medium">Upload image</p>
+        <p className="mt-6 text-sm font-medium text-slate-300">Upload image</p>
 
         <input
           onChange={handleFileChange}
           type="file"
           accept="image/*"
-          className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600"
+          className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-lg text-slate-200 placeholder-slate-500"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}
           required
         />
-        <p className="text-xs text-gray-500 font-light mt-1">
+        <p className="text-xs text-slate-500 font-light mt-1">
           Supported formats: JPG, PNG, and many other image formats.
         </p>
 
         {originalPreview && (
           <div className="mt-6">
-            <p className="text-xs text-gray-500 font-medium mb-2">Original Preview</p>
+            <p className="text-xs text-slate-500 font-medium mb-2">Original Preview</p>
             <img
               src={originalPreview}
               alt="Original preview"
-              className="w-full rounded border border-gray-200 max-h-64 object-contain"
+              className="w-full rounded-lg border border-gray-200 max-h-64 object-contain"
             />
           </div>
         )}
@@ -167,7 +176,7 @@ const RemoveBackground = () => {
         <button
           type="submit"
           disabled={loading || !input}
-          className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#F6AB41] to-[#FF4938] text-white px-4 py-2 mt-6 text-sm rounded-lg cursor-pointer disabled:opacity-60"
+          className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#F6AB41] to-[#FF4938] text-white px-4 py-3 mt-6 text-sm rounded-xl cursor-pointer disabled:opacity-60"
         >
           {loading ? (
             <>
@@ -184,41 +193,45 @@ const RemoveBackground = () => {
       </form>
 
       {/* Right col */}
-      <div className="w-full max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96">
-        <div className="flex items-center gap-3">
-          <Eraser className="w-5 h-5 text-[#FF4938]" />
-          <h1 className="text-xl font-semibold">Processed Image</h1>
+      <div className='w-full max-w-lg p-4 rounded-xl flex flex-col' style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
+
+        <div className='flex items-center gap-3'>
+          <Eraser className='w-5 h-5 text-[#FF4938]' />
+          <h1 className='text-xl font-semibold text-slate-200'>Processed Image</h1>
         </div>
 
-        <div className="flex-1 flex justify-center items-center overflow-y-auto mt-4">
+        <div className='flex-1 flex justify-center items-center'>
           {/* Loading state */}
           {loading && (
-            <div className="flex flex-col items-center gap-3 text-gray-400">
-              <Loader2 className="w-9 h-9 animate-spin text-[#FF4938]" />
-              <p className="text-sm">Removing background...</p>
+            <div className='flex flex-col items-center gap-3 text-gray-400'>
+              <Loader2 className='w-9 h-9 animate-spin text-[#FF4938]' />
+              <p className='text-sm'>Removing background...</p>
             </div>
           )}
 
           {/* Error state */}
           {!loading && error && (
-            <div className="w-full p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600 whitespace-pre-wrap">{error}</p>
+            <div className='w-full p-4 bg-red-50 border border-red-200 rounded-lg'>
+              <p className='text-sm text-red-600 whitespace-pre-wrap'>{error}</p>
             </div>
           )}
 
           {/* Content state */}
           {!loading && !error && content && (
-            <div className="w-full flex flex-col items-center gap-4">
+            <div className='w-full flex flex-col items-center gap-4'>
               <img
                 src={content}
                 alt="Processed preview"
-                className="w-full rounded border border-gray-200 max-h-64 object-contain"
+                className="w-full rounded-lg border border-gray-200 max-h-64 object-contain"
               />
-
               <button
                 type="button"
                 onClick={handleDownload}
-                className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#FF4938] to-[#F6AB41] text-white px-4 py-2 text-sm rounded-lg cursor-pointer"
+                className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#FF4938] to-[#F6AB41] text-white px-4 py-2 text-sm rounded-xl cursor-pointer"
               >
                 <Download className="w-5" />
                 Download
@@ -228,8 +241,8 @@ const RemoveBackground = () => {
 
           {/* Placeholder state */}
           {!loading && !error && !content && (
-            <div className="text-sm flex flex-col items-center gap-5 text-gray-400">
-              <Eraser className="w-9 h-9" />
+            <div className='text-sm flex flex-col items-center gap-5 text-slate-500'>
+              <Eraser className='w-9 h-9' />
               <p>Upload an image and click "Remove background" to get started</p>
             </div>
           )}

@@ -29,7 +29,7 @@ const BlogTitles = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          prompt: `Generate 5 creative blog titles for keyword: "${input}" in category: "${selectedCategory}". Return only the titles as a numbered list.`
+          prompt: `Generate 5 creative blog titles for keyword: "${input}" in category: "${selectedCategory}". Return only titles as a numbered list.`
         })
       })
 
@@ -60,28 +60,37 @@ const BlogTitles = () => {
     <div className="h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700">
 
       {/* Left col */}
-      <form onSubmit={onSubmitHandler} className="w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200">
+      <form onSubmit={onSubmitHandler} className="w-full max-w-lg p-4 rounded-xl" style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '16px'
+      }}>
         <div className="flex items-center gap-3">
           <Sparkles className="w-6 text-[#8E37EB]" />
           <h1 className="text-xl font-semibold">AI Title Generator</h1>
         </div>
 
-        <p className="mt-6 text-sm font-medium">Keyword</p>
+        <p className="mt-6 text-sm font-medium text-slate-300">Keyword</p>
         <input
           onChange={(e) => setInput(e.target.value)}
           value={input}
           type="text"
-          className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300"
+          className="w-full p-2 px-3 mt-2 outline-none text-sm rounded-lg text-slate-200 placeholder-slate-500"
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}
           placeholder="The future of artificial intelligence is..."
           required
         />
 
-        <p className="mt-4 text-sm font-medium">Category</p>
+        <p className="mt-4 text-sm font-medium text-slate-300">Category</p>
         <div className="mt-3 flex gap-3 flex-wrap sm:max-w-9/11">
           {blogCategories.map((item) => (
             <span
               onClick={() => setSelectedCategory(item)}
-              className={`text-xs px-4 py-1 border rounded-full cursor-pointer ${selectedCategory === item ? 'bg-purple-50 text-purple-700' : 'text-gray-500 border-gray-300'}`}
+              className={`text-xs px-4 py-1 border rounded-full cursor-pointer ${selectedCategory === item ? 'bg-purple-600/20 text-purple-300 border-purple-500/30' : 'text-slate-400 border-slate-700'}`}
               key={item}
             >
               {item}
@@ -92,7 +101,10 @@ const BlogTitles = () => {
         <br />
         <button
           disabled={loading}
-          className='w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#C341F6] to-[#8E37EB] text-white px-4 py-2 mt-6 text-sm rounded-lg cursor-pointer disabled:opacity-60'
+          className='w-full flex justify-center items-center gap-2 text-white px-4 py-3 mt-6 text-sm rounded-xl cursor-pointer disabled:opacity-60'
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)'
+          }}
         >
           {loading
             ? <><Loader2 className='w-5 animate-spin' /> Generating...</>
@@ -102,11 +114,15 @@ const BlogTitles = () => {
       </form>
 
       {/* Right col */}
-      <div className='w-full max-w-lg p-4 bg-white rounded-lg flex flex-col border border-gray-200 min-h-96'>
+      <div className='w-full max-w-lg p-4 rounded-xl flex flex-col' style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
 
         <div className='flex items-center gap-3'>
           <Hash className='w-5 h-5 text-[#8E37EB]' />
-          <h1 className='text-xl font-semibold'>Generated titles</h1>
+          <h1 className='text-xl font-semibold text-slate-200'>Generated titles</h1>
         </div>
 
         <div className='flex-1 flex justify-center items-center mt-4'>
@@ -132,7 +148,11 @@ const BlogTitles = () => {
               {titles.map((title, index) => (
                 <div
                   key={index}
-                  className='flex items-start gap-3 p-3 bg-purple-50 border border-purple-100 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors'
+                  className='flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-colors'
+                  style={{
+                    background: 'rgba(139,92,246,0.1)',
+                    border: '1px solid rgba(139,92,246,0.2)'
+                  }}
                   onClick={() => {
                     navigator.clipboard.writeText(title)
                       .then(() => alert('Title copied to clipboard!'))
@@ -148,10 +168,10 @@ const BlogTitles = () => {
                   }}
                   title='Click to copy'
                 >
-                  <span className='text-xs font-bold text-purple-600 mt-0.5'>
+                  <span className='text-xs font-bold text-purple-400 mt-0.5'>
                     {index + 1}
                   </span>
-                  <p className='text-sm text-slate-700'>{title}</p>
+                  <p className='text-sm text-slate-200'>{title}</p>
                 </div>
               ))}
               <p className='text-xs text-gray-400 text-center mt-2'>

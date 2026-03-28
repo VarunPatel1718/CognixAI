@@ -132,29 +132,33 @@ const AiChat = () => {
   }
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <div className="px-6 py-4 flex items-center justify-between" style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-gray-800">CognixAI Assistant</h1>
-            <p className="text-sm text-gray-500">Ask me anything!</p>
+            <h1 className="text-xl font-semibold text-slate-100">CognixAI Assistant</h1>
+            <p className="text-sm text-slate-400">Ask me anything!</p>
           </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={downloadFullChat}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
             title="Download full chat"
           >
             <Download className="w-5 h-5" />
           </button>
           <button
             onClick={clearChat}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
             title="Clear chat"
           >
             <Trash2 className="w-5 h-5" />
@@ -168,8 +172,8 @@ const AiChat = () => {
           /* Welcome Screen */
           <div className="h-full flex flex-col items-center justify-center text-center">
             <div className="text-6xl mb-6">🤖</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">CognixAI Assistant</h2>
-            <p className="text-gray-600 mb-8 max-w-md">
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">CognixAI Assistant</h2>
+            <p className="text-slate-300 mb-8 max-w-md">
               Ask me anything! I can help with coding, writing, analysis and more.
             </p>
             
@@ -178,7 +182,11 @@ const AiChat = () => {
                 <button
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="px-4 py-2 bg-white border border-gray-300 rounded-full text-sm text-gray-700 hover:bg-gray-50 hover:border-indigo-300 transition-colors"
+                  className="px-4 py-2 rounded-full text-sm hover:text-slate-100 transition-colors"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                  }}
                 >
                   {suggestion}
                 </button>
@@ -218,9 +226,16 @@ const AiChat = () => {
                     <div
                       className={`px-4 py-3 rounded-2xl ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
-                          : 'bg-white border border-gray-200 text-gray-800'
+                          ? 'text-white'
+                          : 'text-slate-200'
                       }`}
+                      style={{
+                        background: message.role === 'user'
+                          ? 'linear-gradient(135deg, #7c3aed, #0d9488)'
+                          : 'rgba(255,255,255,0.06)',
+                        border: message.role === 'assistant' ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                        borderRadius: '16px'
+                      }}
                     >
                       <p className="text-sm leading-relaxed">
                         {formatMessage(message.content)}
@@ -290,7 +305,11 @@ const AiChat = () => {
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
+      <div className="px-6 py-4" style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <textarea
@@ -299,14 +318,16 @@ const AiChat = () => {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your message..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              rows={1}
-              disabled={loading}
+              className="w-full px-4 py-3 border rounded-xl resize-none focus:outline-none text-slate-200 placeholder-slate-500"
               style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
                 minHeight: '48px',
                 maxHeight: '120px',
                 resize: 'none'
               }}
+              rows={1}
+              disabled={loading}
               onInput={(e) => {
                 e.target.style.height = 'auto'
                 e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
@@ -316,7 +337,8 @@ const AiChat = () => {
           <button
             onClick={handleSendMessage}
             disabled={loading || !inputMessage.trim()}
-            className="px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl transition-all disabled:cursor-not-allowed flex items-center justify-center"
+            className="px-4 py-3 text-white rounded-xl transition-all disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0d9488)' }}
           >
             <Send className="w-5 h-5" />
           </button>

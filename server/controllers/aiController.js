@@ -486,70 +486,77 @@ export const generateImage = async (req, res) => {
 
 export const removeBackground = async (req, res) => {
   try {
-    const auth = req.auth();
-    const { userId } = auth;
-    const { imageBase64 } = req.body;
-    const plan = req.plan;
-    const free_usage = req.free_usage;
+    const { userId } = req.auth()
+    const { imageBase64 } = req.body
+    const plan = req.plan
+    const free_usage = req.free_usage
 
-    if (plan !== "premium" && free_usage >= 10) {
+    if (plan !== 'premium' && free_usage >= 10) {
       return res.json({
         success: false,
-        message: "Limit reached. Upgrade to continue.",
-      });
+        message: "Limit reached. Upgrade to continue."
+      })
     }
 
-    if (!imageBase64) {
-      return res.status(400).json({
-        success: false,
-        message: "Image is required.",
-      });
-    }
+    const base64Data = imageBase64.includes(',')
+      ? imageBase64.split(',')[1]
+      : imageBase64
 
-    const FormData = (await import("form-data")).default;
-    const formData = new FormData();
-    formData.append("image_file_b64", imageBase64);
-    formData.append("size", "preview");
-
-    console.log("API Key exists:", !!process.env.REMOVEBG_API_KEY);
-    console.log(
-      "API Key first 5 chars:",
-      process.env.REMOVEBG_API_KEY?.substring(0, 5),
-    );
+    const formData = new FormData()
+    formData.append('image_file_b64', base64Data)
+    formData.append('size', 'preview')
 
     const response = await axios.post(
-      "https://api.remove.bg/v1.0/removebg",
+      'https://api.remove.bg/v1.0/removebg',
       formData,
       {
         headers: {
           ...formData.getHeaders(),
-          "X-Api-Key": process.env.REMOVEBG_API_KEY,
+          'X-Api-Key': process.env.REMOVEBG_API_KEY,
         },
-        responseType: "arraybuffer",
-      },
-    );
+        responseType: 'arraybuffer',
+        timeout: 30000
+      }
+    )
 
-    console.log("Response status:", response.status);
-    console.log("Response headers:", response.headers["content-type"]);
+    const resultBase64 = Buffer.from(response.data)
+      .toString('base64')
+    const imageDataUrl = `data:image/png;base64,${resultBase64}` 
 
-    const base64Result = Buffer.from(response.data).toString("base64");
-    const contentType = response.headers["content-type"] || "image/png";
-    const imageDataUrl = `data:${contentType};base64,${base64Result}`;
-    if (plan !== "premium") {
+    await sql`INSERT INTO creations 
+    (user_id, prompt, content, type)
+    VALUES (${userId}, 'Background Removed', 
+    ${imageDataUrl}, 'remove-background')`
+
+    if (plan !== 'premium') {
       await clerkClient.users.updateUserMetadata(userId, {
-        privateMetadata: {
-          free_usage: free_usage + 1,
-        },
-      });
+        privateMetadata: { free_usage: free_usage + 1 }
+      })
     }
-    res.json({ success: true, content: imageDataUrl });
+
+    res.json({ success: true, content: imageDataUrl })
+
   } catch (error) {
-    console.log(error.message);
-    console.log("Remove.bg error status:", error.response?.status);
-    console.log("Remove.bg error data:", error.response?.data?.toString());
-    res.json({ success: false, message: error.message });
+    console.log('RemoveBG error:', error.message)
+    console.log('Error status:', error.response?.status)
+    
+    if (error.response?.status === 402) {
+      return res.json({
+        success: false,
+        message: "Remove.bg credits exhausted. Please add credits at remove.bg"
+      })
+    }
+    
+    if (error.response?.status === 403) {
+      return res.json({
+        success: false,
+        message: "Remove.bg API key invalid. Please check your API key."
+      })
+    }
+
+    res.json({ success: false, message: error.message })
   }
-};
+}
 
 export const chatWithAI = async (req, res) => {
   try {
@@ -597,6 +604,11 @@ export const chatWithAI = async (req, res) => {
 }
 
 export const generateCode = async (req, res) => {
+  console.log('=== CODE GEN DEBUG ===')
+  console.log('Groq key exists:', !!process.env.GROQ_API_KEY)
+  console.log('Groq key first 8:', process.env.GROQ_API_KEY?.substring(0, 8))
+  console.log('Groq key length:', process.env.GROQ_API_KEY?.length)
+  
   try {
     const { userId } = req.auth()
     const { prompt, language, codeType } = req.body
@@ -725,12 +737,24 @@ export const removeObject = async (req, res) => {
       }
     )
 
-    const resultBase64 = Buffer.from(response.data).toString('base64')
-    const contentType = response.headers['content-type'] || 'image/png'
-    const imageDataUrl = `data:${contentType};base64,${resultBase64}`
+    const uploadToCloudinary = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { resource_type: 'image', format: 'png' },
+          (error, result) => {
+            if (error) reject(error)
+            else resolve(result)
+          }
+        )
+        Readable.from(buffer).pipe(uploadStream)
+      })
+    }
+
+    const result = await uploadToCloudinary(Buffer.from(response.data))
+    const secure_url = result.secure_url
 
     await sql`INSERT INTO creations (user_id, prompt, content, type, publish)
-    VALUES (${userId}, ${objectName}, ${imageDataUrl}, 'remove-object', false)`;
+    VALUES (${userId}, ${objectName}, ${secure_url}, 'remove-object', false)`;
 
     if (plan !== "premium") {
       await clerkClient.users.updateUserMetadata(userId, {
@@ -740,7 +764,7 @@ export const removeObject = async (req, res) => {
 
     res.json({ 
       success: true, 
-      content: imageDataUrl,
+      content: secure_url,
       message: 'Background removed. Main subject preserved.'
     });
   } catch (error) {

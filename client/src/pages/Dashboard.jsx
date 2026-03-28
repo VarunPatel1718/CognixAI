@@ -44,33 +44,44 @@ const Dashboard = () => {
       <div className="flex justify-start gap-4 flex-wrap">
 
         {/* Total Creations Card */}
-        <div className="flex justify-between items-center w-72 p-4 px-6 bg-white rounded-xl border border-gray-200">
+        <div className="flex justify-between items-center w-72 p-4 px-6 rounded-xl" style={{
+          background: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
           <div className="text-slate-600">
-            <p className="text-sm">Total Creations</p>
-            <h2 className="text-xl font-semibold">{creations.length}</h2>
+            <p className='text-sm font-medium text-slate-400'>Total Creations</p>
+            <h2 className='text-2xl font-bold text-slate-100'>{creations.length}</h2>
           </div>
 
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#3588F2] to-[#0BB0D7] text-white flex justify-center items-center">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#3588F2]/80 to-[#0BB0D7]/80 text-white flex justify-center items-center">
             <Sparkles className="w-5 text-white" />
           </div>
         </div>
 
         {/* Active Plan Card */}
-        <div className="flex justify-between items-center w-72 p-4 px-6 bg-white rounded-xl border border-gray-200">
+        <div className="flex justify-between items-center w-72 p-4 px-6 rounded-xl" style={{
+          background: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
           <div className="text-slate-600">
-            <p className="text-sm">Active Plan</p>
-            <h2 className="text-xl font-semibold">
+            <p className='text-sm font-medium text-slate-400'>Active Plan</p>
+            <h2 
+              className='text-xl font-semibold'
+              style={{ color: '#a78bfa' }}
+            >
               <Protect plan="premium" fallback="Free"> Premium</Protect>
             </h2>
           </div>
 
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF61C5] to-[#9E53EE] text-white flex justify-center items-center">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF61C5]/80 to-[#9E53EE]/80 text-white flex justify-center items-center">
             <Gem className="w-5 text-white" />
           </div>
         </div>
       </div>
       <div>
-        <p className='mt-6 mb-4'>Recent Creations</p>
+        <p className='mt-6 mb-4 text-base font-semibold text-slate-200'>Recent Creations</p>
         {
           creations.map((item) => <CreationItem key={item.id} item={item} />)
         }

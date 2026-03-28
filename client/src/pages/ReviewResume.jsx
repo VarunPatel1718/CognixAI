@@ -148,18 +148,26 @@ const ReviewResume = () => {
     <div className='h-full overflow-y-scroll p-6 flex items-start flex-wrap gap-4 text-slate-700'>
 
       {/* Left Panel */}
-      <div className='w-full max-w-lg p-4 bg-white rounded-lg border border-gray-200'>
+      <div className='w-full max-w-lg p-4 rounded-xl' style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
         <div className='flex items-center gap-3'>
           <Sparkles className='w-6 text-[#00DA83]' />
           <h1 className='text-xl font-semibold'>Resume Review</h1>
         </div>
 
-        <p className='mt-6 text-sm font-medium'>Upload Resume</p>
+        <p className='mt-6 text-sm font-medium text-slate-300'>Upload Resume</p>
         <input
           onChange={(e) => handleFileUpload(e.target.files[0] || null)}
           type='file'
           accept='application/pdf'
-          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600'
+          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-lg text-slate-200 placeholder-slate-500'
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}
         />
         {processingFile && (
           <div className='flex items-center gap-2 mt-2 text-sm text-gray-600'>
@@ -167,15 +175,19 @@ const ReviewResume = () => {
             <span>Processing PDF...</span>
           </div>
         )}
-        <p className='text-xs text-gray-500 font-light mt-1'>Supports PDF resume only.</p>
+        <p className='text-xs text-slate-500 font-light mt-1'>Supports PDF resume only.</p>
 
-        <p className='mt-4 text-sm font-medium'>
-          Job Description <span className='text-gray-400 font-normal'>(Optional)</span>
+        <p className='mt-4 text-sm font-medium text-slate-300'>
+          Job Description <span className='text-slate-400 font-normal'>(Optional)</span>
         </p>
         <textarea
           value={jobDescription}
           onChange={(e) => setJobDescription(e.target.value)}
-          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-md border border-gray-300 text-gray-600'
+          className='w-full p-2 px-3 mt-2 outline-none text-sm rounded-lg text-slate-200 placeholder-slate-500'
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}
           rows={4}
           placeholder='Paste job description here for a Job Match score...'
         />
@@ -184,7 +196,7 @@ const ReviewResume = () => {
           <button
             onClick={analyzeResume}
             disabled={analyzing}
-            className='w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#009BB3] to-[#00DA83] text-white px-4 py-2 mt-4 text-sm rounded-lg cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50'
+            className='w-full flex justify-center items-center gap-2 bg-gradient-to-r from-[#009BB3] to-[#00DA83] text-white px-4 py-3 mt-4 text-sm rounded-xl cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50'
           >
             <Sparkles className='w-5' />
             {analyzing ? 'Analyzing...' : 'Analyze Resume'}
@@ -192,7 +204,10 @@ const ReviewResume = () => {
         )}
 
         {error && (
-          <div className='mt-4 p-3 bg-red-50 border border-red-200 rounded-lg'>
+          <div className='mt-4 p-3 rounded-lg' style={{
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.2)'
+          }}>
             <div className='flex items-center gap-2'>
               <AlertCircle className='w-4 h-4 text-red-600' />
               <p className='text-sm text-red-600'>{error}</p>
@@ -202,7 +217,11 @@ const ReviewResume = () => {
       </div>
 
       {/* Right Panel */}
-      <div className='w-full max-w-2xl p-6 bg-white rounded-lg flex flex-col border border-gray-200 min-h-[600px]'>
+      <div className='w-full max-w-2xl p-6 rounded-xl flex flex-col' style={{
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)'
+      }}>
 
         {/* Empty state */}
         {!analyzing && !analysisResult && !error && (
