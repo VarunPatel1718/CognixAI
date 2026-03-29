@@ -6,7 +6,7 @@ import { clerkMiddleware } from "@clerk/express";
 import aiRouter from "./routes/aiRoutes.js";
 import newsletterRouter from "./routes/newsletterRoutes.js";
 import sql from "./configs/db.js";
-import connectCloudinary from "./configs/Cloudinary.js";
+import connectCloudinary from './configs/cloudinary.js';
 
 const app = express();
 
