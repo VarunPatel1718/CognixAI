@@ -18,7 +18,7 @@ app.use(
       const allowedOrigins = [
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://cognixai.vercel.app",
+        "https://cognixai-saas.vercel.app",
         process.env.FRONTEND_URL,
       ].filter(Boolean);
 
