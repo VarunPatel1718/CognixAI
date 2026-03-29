@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 import { useUser } from '@clerk/clerk-react'
 import axios from 'axios'
 import { Send, MessageCircle, Trash2, Copy, Download } from 'lucide-react'
@@ -46,7 +47,7 @@ const AiChat = () => {
       const token = await getToken()
       
       const response = await axios.post(
-        'http://localhost:3000/api/ai/chat',
+        `${API_BASE_URL}/api/ai/chat`,
         {
           messages: newMessages
         },

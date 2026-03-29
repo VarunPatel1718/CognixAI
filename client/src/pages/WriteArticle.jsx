@@ -1,6 +1,7 @@
 import { Sparkles, Edit, Loader2 } from 'lucide-react'
 import React, { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 
 const WriteArticle = () => {
 
@@ -27,7 +28,7 @@ const WriteArticle = () => {
     try {
       const token = await getToken()
 
-      const response = await fetch('http://localhost:3000/api/ai/generate-article', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/generate-article`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

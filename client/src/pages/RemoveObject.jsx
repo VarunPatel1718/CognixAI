@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 import axios from 'axios'
 import { Sparkles, Scissors, Download, Upload, Loader2 } from 'lucide-react'
 
@@ -89,7 +90,7 @@ const RemoveObject = () => {
       const token = await getToken()
       
       const response = await axios.post(
-        'http://localhost:3000/api/ai/remove-object',
+        `${API_BASE_URL}/api/ai/remove-object`,
         {
           imageBase64: compressedImage,
           objectName: objectName.trim()

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { Gem } from 'lucide-react'
 import { Protect, useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 import CreationItem from '../components/CreationItem'
 
 
@@ -17,7 +18,7 @@ const Dashboard = () => {
       try {
         const token = await getToken()
 
-        const response = await fetch('http://localhost:3000/api/ai/get-user-creations', {
+        const response = await fetch(`${API_BASE_URL}/api/ai/get-user-creations`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`

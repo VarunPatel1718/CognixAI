@@ -1,6 +1,7 @@
 import { FileText, Sparkles, Loader2, Download, TrendingUp, AlertCircle, Target } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 import ReactMarkdown from 'react-markdown'
 import * as pdfjsLib from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -68,7 +69,7 @@ const ReviewResume = () => {
     setAnalysisResult(null)
     try {
       const token = await getToken()
-      const response = await fetch('http://localhost:3000/api/ai/review-resume', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/review-resume`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

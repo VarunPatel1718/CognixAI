@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 import axios from 'axios'
 import { Code2, Copy, Download, Loader2, Code } from 'lucide-react'
 
@@ -46,7 +47,7 @@ const GenerateCode = () => {
       const token = await getToken()
       
       const response = await axios.post(
-        'http://localhost:3000/api/ai/generate-code',
+        `${API_BASE_URL}/api/ai/generate-code`,
         {
           prompt: prompt.trim(),
           language: selectedLanguage,

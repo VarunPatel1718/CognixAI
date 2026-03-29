@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Sparkles, Hash, Loader2 } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 
 const BlogTitles = () => {
   const blogCategories = ['General', 'Technology', 'Health', 'Business', 'Travel', 'Food', 'Lifestyle', 'Education']
@@ -22,7 +23,7 @@ const BlogTitles = () => {
     try {
       const token = await getToken()
 
-      const response = await fetch('http://localhost:3000/api/ai/generate-blog-title', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/generate-blog-title`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

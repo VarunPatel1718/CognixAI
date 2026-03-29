@@ -2,6 +2,7 @@ import { useUser } from '@clerk/clerk-react'
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Heart, Download, Loader2 } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
+import API_BASE_URL from '../config.js'
 
 const Community = () => {
 
@@ -77,7 +78,7 @@ const Community = () => {
       
       loadingRef.current = true
       
-      const response = await fetch(`http://localhost:3000/api/ai/get-published-creations`)
+      const response = await fetch(`${API_BASE_URL}/api/ai/get-published-creations`)
       const data = await response.json()
       
       if (data.success) {
@@ -135,7 +136,7 @@ const Community = () => {
       console.log('User ID:', user.id)
       console.log('Token exists:', !!token)
       
-      const response = await fetch('http://localhost:3000/api/ai/toggle-like', {
+      const response = await fetch(`${API_BASE_URL}/api/ai/toggle-like`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

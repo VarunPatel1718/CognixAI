@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { assets } from '../assets/assets'
 import axios from 'axios'
+import API_BASE_URL from '../config.js'
 import { Loader2 } from 'lucide-react'
 
 const Footer = () => {
@@ -36,7 +37,7 @@ const Footer = () => {
 
         try {
             const response = await axios.post(
-                'http://localhost:3000/api/newsletter/subscribe',
+                `${API_BASE_URL}/api/newsletter/subscribe`,
                 { email: email.trim() }
             )
 
