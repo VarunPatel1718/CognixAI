@@ -11,7 +11,13 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://choosealicense.com/licenses/mit/)
 
-## 📋 Table of Contents
+## � Live Demo
+
+**Live Demo:** https://cognixai-saas.vercel.app  
+**Backend API:** https://cognixai-backend-sbs5.onrender.com  
+**GitHub:** https://github.com/VarunPatel1718/CognixAI
+
+## �📋 Table of Contents
 
 - [✨ Features](#-features)
 - [🛠️ Tech Stack](#️-tech-stack)
@@ -323,4 +329,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ⭐ **Star this repository if it helped you!**
 
 🚀 **Built with ❤️ using modern web technologies**
-"# trigger" 
+"# trigger"
