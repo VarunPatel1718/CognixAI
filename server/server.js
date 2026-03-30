@@ -24,7 +24,13 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
-app.use(clerkMiddleware());
+app.use(clerkMiddleware({
+  authorizedParties: [
+    'http://localhost:5173',
+    'https://cognixai-saas.vercel.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean)
+}));
 
 // PUBLIC routes
 app.get("/", (req, res) => res.send("Server is Live!"));

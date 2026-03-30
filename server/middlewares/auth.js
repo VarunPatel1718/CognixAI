@@ -1,15 +1,24 @@
 import { clerkClient } from "@clerk/express";
 
-// Middleware to check userId and specific feature permissions
 export const auth = async (req, res, next) => {
   try {
-    const authState = typeof req.auth === 'function' 
-      ? req.auth() 
-      : req.auth
-      
-    const userId = authState?.userId
+    let authState = null
     
+    try {
+      authState = typeof req.auth === 'function' 
+        ? req.auth() 
+        : req.auth
+    } catch (e) {
+      console.log('Auth state error:', e.message)
+    }
+
+    const userId = authState?.userId
+
     if (!userId) {
+      console.log('No userId found in auth state')
+      console.log('Auth state:', JSON.stringify(authState))
+      console.log('Headers:', req.headers.authorization ? 
+        'Bearer token present' : 'No bearer token')
       return res.status(401).json({ 
         success: false, 
         message: "User not authenticated" 
@@ -27,12 +36,13 @@ export const auth = async (req, res, next) => {
       hasPremiumPlan = false
     }
 
-    // Check for specific feature flags from session claims
-    const featureClaims = authState?.sessionClaims?.fea || '';
-    const features = featureClaims.split(',').map(f => f.trim().replace('u:', ''));
+    let user = null
+    try {
+      user = await clerkClient.users.getUser(userId)
+    } catch (userError) {
+      console.log('Get user error:', userError.message)
+    }
 
-    const user = await clerkClient.users.getUser(userId)
-    
     const existingFreeUsageRaw = user?.privateMetadata?.free_usage
     const existingFreeUsage = typeof existingFreeUsageRaw === 'number'
       ? existingFreeUsageRaw
@@ -42,15 +52,10 @@ export const auth = async (req, res, next) => {
       req.free_usage = 0
     } else {
       req.free_usage = existingFreeUsage
-      if (existingFreeUsageRaw === undefined) {
-        await clerkClient.users.updateUserMetadata(userId, {
-          privateMetadata: { free_usage: 0 }
-        })
-      }
     }
 
     req.plan = hasPremiumPlan ? 'premium' : 'free'
-    req.features = features // Add features to request object
+    req.userId = userId
     next()
     
   } catch (error) {
@@ -60,17 +65,4 @@ export const auth = async (req, res, next) => {
       message: error.message 
     })
   }
-}
-
-// Middleware to check specific feature permission
-export const requireFeature = (featureName) => {
-  return (req, res, next) => {
-    if (!req.features || !req.features.includes(featureName)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: `Feature '${featureName}' not available in your plan` 
-      });
-    }
-    next();
-  };
 }
