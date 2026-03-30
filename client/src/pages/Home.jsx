@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Hero from '../components/Hero'
@@ -10,6 +10,16 @@ import Footer from '../components/Footer'
 const Home = () => {
   const navigate = useNavigate()
   const [showDemo, setShowDemo] = useState(false)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('cognixai-theme')
+    const isDark = saved ? saved === 'dark' : true
+    if (isDark) {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light')
+    }
+  }, [])
 
   return (
     <>

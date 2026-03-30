@@ -2,6 +2,7 @@ import { useUser } from '@clerk/clerk-react'
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Heart, Download, Loader2 } from 'lucide-react'
 import { useAuth } from '@clerk/clerk-react'
+import { useNavigate } from 'react-router-dom'
 import API_BASE_URL from '../config.js'
 
 const Community = () => {
@@ -15,9 +16,11 @@ const Community = () => {
   
   const { user } = useUser()
   const { getToken } = useAuth()
+  const navigate = useNavigate()
   
   const imagesContainerRef = useRef(null)
   const loadingRef = useRef(false)
+  const observerRef = useRef(null)
 
   const formatPrompt = (prompt) => {
     if (!prompt) return 'AI Generated Image'
@@ -171,9 +174,14 @@ const Community = () => {
 
   // Infinite scroll observer
   useEffect(() => {
-    if (!hasMore) return // Stop observing when no more images
+    if (!hasMore) {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+      return
+    }
 
-    const observer = new IntersectionObserver(
+    observerRef.current = new IntersectionObserver(
       (entries) => {
         const target = entries[0]
         if (target.isIntersecting && hasMore && !loadingMore && !loading) {
@@ -191,19 +199,16 @@ const Community = () => {
       // Find the loading indicator element
       const loadingElement = currentContainer.querySelector('[data-infinite-scroll-loading]')
       if (loadingElement) {
-        observer.observe(loadingElement)
+        observerRef.current.observe(loadingElement)
       }
     }
 
     return () => {
-      if (currentContainer) {
-        const loadingElement = currentContainer.querySelector('[data-infinite-scroll-loading]')
-        if (loadingElement) {
-          observer.unobserve(loadingElement)
-        }
+      if (observerRef.current) {
+        observerRef.current.disconnect()
       }
     }
-  }, [hasMore, loadingMore, loading, loadMoreCreations])
+  }, [hasMore, displayedCreations, loadingMore, loading, loadMoreCreations])
 
   useEffect(() => {
     if (user) {
@@ -302,10 +307,13 @@ const Community = () => {
                 )}
               </div>
             ) : (
-              <div className='flex justify-center items-center py-4'>
-                <p className='text-sm text-slate-500'>
-                  You have seen all creations
-                </p>
+              <div className="text-center py-8 text-slate-500 text-sm">
+                ✨ You have seen all published creations!
+                <br/>
+                <span className="text-violet-400 cursor-pointer"
+                onClick={() => navigate('/ai/generate-images')}>
+                  Create more images to share
+                </span>
               </div>
             )}
           </>

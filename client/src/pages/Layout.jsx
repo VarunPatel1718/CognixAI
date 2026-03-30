@@ -8,9 +8,13 @@ import { SignIn, useUser } from '@clerk/clerk-react'
 const Layout = () => {
   const navigate = useNavigate()
   const [sidebar, setSidebar] = useState(false)
-  const [isDark, setIsDark] = useState(true)
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('cognixai-theme')
+    return saved ? saved === 'dark' : true
+  })
 
   useEffect(() => {
+    localStorage.setItem('cognixai-theme', isDark ? 'dark' : 'light')
     if (isDark) {
       document.documentElement.classList.add('dark')
       document.documentElement.setAttribute('data-theme', 'dark')

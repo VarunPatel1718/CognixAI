@@ -108,7 +108,7 @@ const Sidebar = ({ sidebar, setSidebar }) => {
           onClick={openUserProfile}
           className="flex gap-2 items-center cursor-pointer"
         >
-          <img src={user.imageUrl} className="w-7 rounded-full" alt="" />
+          <img src={user.imageUrl} className="w-7 rounded-full" alt="User" />
           <div>
             <h1 
               className="font-medium"
@@ -120,9 +120,7 @@ const Sidebar = ({ sidebar, setSidebar }) => {
               className="text-xs"
               style={{ fontSize: '0.7rem', color: '#a78bfa' }}
             >
-              <Protect plan="premium" fallback="Free">
-                Premium Plan
-              </Protect>
+              <Protect plan="premium" fallback="Free">Premium Plan</Protect>
             </p>
           </div>
         </div>
