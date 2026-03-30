@@ -155,6 +155,10 @@ export const generateBlogTitle = async (req, res) => {
 }
 
 export const reviewResume = async (req, res) => {
+  console.log('Resume review started')
+  console.log('Gemini key exists:', !!process.env.GEMINI_API_KEY)
+  console.log('Groq key exists:', !!process.env.GROQ_API_KEY)
+  
   console.log("=== RESUME REVIEW CONTROLLER DEBUG ===");
   console.log("Resume controller started");
   console.log("Request body keys:", Object.keys(req.body));
@@ -521,12 +525,29 @@ export const removeBackground = async (req, res) => {
 
     const resultBase64 = Buffer.from(response.data)
       .toString('base64')
-    const imageDataUrl = `data:image/png;base64,${resultBase64}` 
+    const imageDataUrl = `data:image/png;base64,${resultBase64}`
+
+    // Upload to Cloudinary before saving to database
+    let secure_url;
+    try {
+      const upload = await cloudinary.uploader.upload(imageDataUrl, {
+        unsigned: true,
+        upload_preset: "qco39ytg",
+      });
+      secure_url = upload.secure_url;
+      console.log("SUCCESS: Background removed image uploaded to Cloudinary:", upload.secure_url);
+    } catch (cloudinaryError) {
+      console.error("❌ Cloudinary Error in removeBackground:", cloudinaryError.message);
+      return res.status(500).json({
+        success: false,
+        message: `Cloudinary upload failed: ${cloudinaryError.message}`
+      });
+    }
 
     await sql`INSERT INTO creations 
     (user_id, prompt, content, type)
     VALUES (${userId}, 'Background Removed', 
-    ${imageDataUrl}, 'remove-background')`
+    ${secure_url}, 'remove-background')`
 
     if (plan !== 'premium') {
       await clerkClient.users.updateUserMetadata(userId, {
@@ -534,7 +555,7 @@ export const removeBackground = async (req, res) => {
       })
     }
 
-    res.json({ success: true, content: imageDataUrl })
+    res.json({ success: true, content: secure_url })
 
   } catch (error) {
     console.log('RemoveBG error:', error.message)

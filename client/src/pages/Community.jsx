@@ -241,8 +241,16 @@ const Community = () => {
                 >
                   <img
                     src={creation.content}
-                    alt=''
-                    className='w-full h-full object-cover rounded-lg'
+                    alt={creation.prompt || 'AI Generated'}
+                    className="w-full h-full object-cover rounded-lg"
+                    style={{ minHeight: '200px' }}
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.parentElement.style.background = 
+                        'rgba(99,55,255,0.1)'
+                      e.target.parentElement.innerHTML = 
+                        '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:#a78bfa;font-size:12px;">Image unavailable</div>'
+                    }}
                   />
 
                   {/* Hover overlay */}
